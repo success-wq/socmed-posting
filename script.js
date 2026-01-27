@@ -61,7 +61,6 @@ function createForm() {
         page: '',
         platforms: [],
         postPrompt: '',
-        geminiPrompt: '',
         videoEnabled: false,
         videoType: 'prompt',
         videoPrompt: '',
@@ -241,19 +240,6 @@ function renderForm(form) {
                         placeholder="Describe what you want to post..."
                         required
                     ></textarea>
-                </div>
-
-                <!-- Gemini Prompt -->
-                <div class="form-section">
-                    <label class="section-label">
-                        Image Generation Prompt
-                    </label>
-                    <textarea 
-                        class="form-textarea" 
-                        data-field="geminiPrompt" 
-                        placeholder="Describe the image you want generated (optional)..."
-                    ></textarea>
-                    <span class="optional-label">Optional</span>
                 </div>
             </div>
 
@@ -451,7 +437,6 @@ function clearForm(formId) {
     form.page = '';
     form.platforms = [];
     form.postPrompt = '';
-    form.geminiPrompt = '';
     form.videoEnabled = false;
     form.videoType = 'prompt';
     form.videoPrompt = '';
