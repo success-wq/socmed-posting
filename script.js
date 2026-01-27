@@ -57,10 +57,17 @@ function createForm() {
     const formId = forms.length + 1;
     const form = {
         id: formId,
+        pageMode: 'select',
         page: '',
         platforms: [],
         postPrompt: '',
-        geminiPrompt: ''
+        geminiPrompt: '',
+        videoEnabled: false,
+        videoType: 'prompt',
+        videoPrompt: '',
+        imageEnabled: false,
+        imageType: 'prompt',
+        imagePrompt: ''
     };
     
     forms.push(form);
@@ -79,6 +86,24 @@ function renderForm(form) {
             </div>
             
             <div class="form-grid">
+                <!-- Page Mode Selection -->
+                <div class="form-section">
+                    <label class="section-label">
+                        Page Selection Mode
+                        <span class="required-indicator">*</span>
+                    </label>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="pageMode-${form.id}" data-field="pageMode" value="select" checked>
+                            <span class="radio-label">Select Pages</span>
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" class="radio-input" name="pageMode-${form.id}" data-field="pageMode" value="all">
+                            <span class="radio-label">All Pages</span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Page Select -->
                 <div class="form-section">
                     <label class="section-label">
@@ -114,6 +139,93 @@ function renderForm(form) {
                             <input type="checkbox" class="checkbox-input" data-field="platforms" value="instagram">
                             <span class="checkbox-label">Instagram</span>
                         </label>
+                    </div>
+                </div>
+
+                <!-- Media Options -->
+                <div class="form-section media-section">
+                    <label class="section-label">Media Options</label>
+                    
+                    <!-- Video Option -->
+                    <div class="media-option">
+                        <label class="checkbox-item media-checkbox">
+                            <input type="checkbox" class="checkbox-input" data-field="videoEnabled" data-media-type="video">
+                            <span class="checkbox-label">Video</span>
+                        </label>
+                        
+                        <div class="media-config" data-media-config="video" style="display: none;">
+                            <div class="media-type-selector">
+                                <label class="radio-item">
+                                    <input type="radio" class="radio-input" name="videoType-${form.id}" data-field="videoType" value="prompt" checked>
+                                    <span class="radio-label">Prompt</span>
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" class="radio-input" name="videoType-${form.id}" data-field="videoType" value="upload">
+                                    <span class="radio-label">Upload</span>
+                                </label>
+                            </div>
+                            
+                            <div class="media-input-container">
+                                <textarea 
+                                    class="form-textarea media-prompt" 
+                                    data-field="videoPrompt" 
+                                    data-prompt-type="video"
+                                    placeholder="Describe the video you want generated..."
+                                ></textarea>
+                                <input 
+                                    type="file" 
+                                    class="file-input media-upload" 
+                                    data-upload-type="video"
+                                    accept="video/*"
+                                    disabled
+                                    style="display: none;"
+                                >
+                                <div class="upload-placeholder" data-upload-placeholder="video" style="display: none;">
+                                    <span>Upload coming soon...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Image Option -->
+                    <div class="media-option">
+                        <label class="checkbox-item media-checkbox">
+                            <input type="checkbox" class="checkbox-input" data-field="imageEnabled" data-media-type="image">
+                            <span class="checkbox-label">Image</span>
+                        </label>
+                        
+                        <div class="media-config" data-media-config="image" style="display: none;">
+                            <div class="media-type-selector">
+                                <label class="radio-item">
+                                    <input type="radio" class="radio-input" name="imageType-${form.id}" data-field="imageType" value="prompt" checked>
+                                    <span class="radio-label">Prompt</span>
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" class="radio-input" name="imageType-${form.id}" data-field="imageType" value="upload">
+                                    <span class="radio-label">Upload</span>
+                                </label>
+                            </div>
+                            
+                            <div class="media-input-container">
+                                <textarea 
+                                    class="form-textarea media-prompt" 
+                                    data-field="imagePrompt" 
+                                    data-prompt-type="image"
+                                    placeholder="Describe the image you want generated..."
+                                ></textarea>
+                                <input 
+                                    type="file" 
+                                    class="file-input media-upload" 
+                                    data-upload-type="image"
+                                    accept="image/*"
+                                    disabled
+                                    style="display: none;"
+                                >
+                                <div class="upload-placeholder" data-upload-placeholder="image" style="display: none;">
+                                    <span>Upload coming soon...</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -181,8 +293,73 @@ function attachFormListeners(formId) {
     inputs.forEach(input => {
         input.addEventListener('change', (e) => {
             updateFormData(formId, e.target);
+            
+            // Handle page mode change
+            if (e.target.dataset.field === 'pageMode') {
+                togglePageDropdown(formId, e.target.value);
+            }
+            
+            // Handle media enable/disable
+            if (e.target.dataset.mediaType) {
+                toggleMediaConfig(formId, e.target.dataset.mediaType, e.target.checked);
+            }
+            
+            // Handle media type change (prompt vs upload)
+            if (e.target.dataset.field === 'videoType' || e.target.dataset.field === 'imageType') {
+                const mediaType = e.target.dataset.field === 'videoType' ? 'video' : 'image';
+                toggleMediaInput(formId, mediaType, e.target.value);
+            }
         });
     });
+}
+
+// Toggle page dropdown based on mode
+function togglePageDropdown(formId, mode) {
+    const formElement = document.querySelector(`[data-form-id="${formId}"]`);
+    const pageSelect = formElement.querySelector('[data-field="page"]');
+    
+    if (mode === 'all') {
+        pageSelect.disabled = true;
+        pageSelect.style.opacity = '0.4';
+        pageSelect.style.cursor = 'not-allowed';
+        pageSelect.value = '';
+    } else {
+        pageSelect.disabled = false;
+        pageSelect.style.opacity = '1';
+        pageSelect.style.cursor = 'pointer';
+    }
+}
+
+// Toggle media configuration visibility
+function toggleMediaConfig(formId, mediaType, enabled) {
+    const formElement = document.querySelector(`[data-form-id="${formId}"]`);
+    const mediaConfig = formElement.querySelector(`[data-media-config="${mediaType}"]`);
+    
+    mediaConfig.style.display = enabled ? 'block' : 'none';
+    
+    // Reset media type to prompt when disabling
+    if (!enabled) {
+        const promptRadio = formElement.querySelector(`[data-field="${mediaType}Type"][value="prompt"]`);
+        if (promptRadio) {
+            promptRadio.checked = true;
+            toggleMediaInput(formId, mediaType, 'prompt');
+        }
+    }
+}
+
+// Toggle between prompt and upload input
+function toggleMediaInput(formId, mediaType, inputType) {
+    const formElement = document.querySelector(`[data-form-id="${formId}"]`);
+    const promptTextarea = formElement.querySelector(`[data-prompt-type="${mediaType}"]`);
+    const uploadPlaceholder = formElement.querySelector(`[data-upload-placeholder="${mediaType}"]`);
+    
+    if (inputType === 'prompt') {
+        promptTextarea.style.display = 'block';
+        uploadPlaceholder.style.display = 'none';
+    } else {
+        promptTextarea.style.display = 'none';
+        uploadPlaceholder.style.display = 'flex';
+    }
 }
 
 // Update Form Data
@@ -193,6 +370,19 @@ function updateFormData(formId, input) {
     if (field === 'platforms') {
         const checkboxes = document.querySelectorAll(`[data-form-id="${formId}"] [data-field="platforms"]:checked`);
         form.platforms = Array.from(checkboxes).map(cb => cb.value);
+    } else if (field === 'pageMode') {
+        form.pageMode = input.value;
+        if (input.value === 'all') {
+            form.page = '';
+        }
+    } else if (field === 'videoEnabled') {
+        form.videoEnabled = input.checked;
+    } else if (field === 'imageEnabled') {
+        form.imageEnabled = input.checked;
+    } else if (field === 'videoType') {
+        form.videoType = input.value;
+    } else if (field === 'imageType') {
+        form.imageType = input.value;
     } else {
         form[field] = input.value;
     }
@@ -240,11 +430,34 @@ function clearForm(formId) {
     formElement.querySelectorAll('select, textarea').forEach(el => el.value = '');
     formElement.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
     
+    // Reset radio to "select pages"
+    const selectRadio = formElement.querySelector('[data-field="pageMode"][value="select"]');
+    if (selectRadio) {
+        selectRadio.checked = true;
+        togglePageDropdown(formId, 'select');
+    }
+    
+    // Reset media options
+    const videoPromptRadio = formElement.querySelector('[data-field="videoType"][value="prompt"]');
+    const imagePromptRadio = formElement.querySelector('[data-field="imageType"][value="prompt"]');
+    if (videoPromptRadio) videoPromptRadio.checked = true;
+    if (imagePromptRadio) imagePromptRadio.checked = true;
+    
+    // Hide media configs
+    formElement.querySelectorAll('[data-media-config]').forEach(el => el.style.display = 'none');
+    
     const form = forms.find(f => f.id === formId);
+    form.pageMode = 'select';
     form.page = '';
     form.platforms = [];
     form.postPrompt = '';
     form.geminiPrompt = '';
+    form.videoEnabled = false;
+    form.videoType = 'prompt';
+    form.videoPrompt = '';
+    form.imageEnabled = false;
+    form.imageType = 'prompt';
+    form.imagePrompt = '';
 }
 
 // Delete Form
@@ -272,18 +485,31 @@ function saveForm(formId) {
     const form = forms.find(f => f.id === formId);
     
     // Validate
-    if (!form.page || form.platforms.length === 0 || !form.postPrompt) {
-        alert('Please fill all required fields (Page, Platforms, Post Prompt)');
+    if (form.pageMode === 'select' && !form.page) {
+        alert('Please select a page');
         return;
     }
     
-    alert(`Form ${formId} saved! Total forms saved: ${forms.filter(f => f.page).length}`);
+    if (form.platforms.length === 0) {
+        alert('Please select at least one platform');
+        return;
+    }
+    
+    if (!form.postPrompt) {
+        alert('Please enter a post prompt');
+        return;
+    }
+    
+    alert(`Form ${formId} saved! Total forms saved: ${forms.filter(f => (f.pageMode === 'all' || f.page) && f.postPrompt).length}`);
 }
 
 // Submit All Forms
 async function submitAllForms() {
     // Validate all forms
-    const validForms = forms.filter(f => f.page && f.platforms.length > 0 && f.postPrompt);
+    const validForms = forms.filter(f => {
+        const hasValidPage = f.pageMode === 'all' || f.page;
+        return hasValidPage && f.platforms.length > 0 && f.postPrompt;
+    });
     
     if (validForms.length === 0) {
         alert('Please complete at least one form before submitting');
@@ -333,6 +559,4 @@ function showLoading(show) {
 }
 
 // Initialize on page load
-
 document.addEventListener('DOMContentLoaded', init);
-
