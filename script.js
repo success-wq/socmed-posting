@@ -1,6 +1,6 @@
 // Configuration
 const CONFIG = {
-    N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6', // Replace with your n8n webhook
+    N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook-test/65ce59cc-e7f3-497b-9a11-068d578caff6', // Replace with your n8n webhook
     GHL_LOCATION_ID: 'WXQN7BcuGraEWbKThpHB',
     GHL_TOKEN: 'pit-6f2acdd2-7183-497d-927b-c34cedef658c',
     GHL_USER_ID: 'Jq6fypbCiDz2jmMSnjj3'
@@ -333,4 +333,5 @@ function showLoading(show) {
 }
 
 // Initialize on page load
+
 document.addEventListener('DOMContentLoaded', init);
