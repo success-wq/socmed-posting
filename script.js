@@ -1,6 +1,6 @@
 // Configuration
 const CONFIG = {
-    N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook-test/65ce59cc-e7f3-497b-9a11-068d578caff6', // Replace with your n8n webhook
+    N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
     GHL_LOCATION_ID: 'WXQN7BcuGraEWbKThpHB',
     GHL_TOKEN: 'pit-6f2acdd2-7183-497d-927b-c34cedef658c',
     GHL_USER_ID: 'Jq6fypbCiDz2jmMSnjj3'
@@ -61,6 +61,7 @@ function createForm() {
         page: '',
         platforms: [],
         postPrompt: '',
+        geminiPrompt: '',
         videoEnabled: false,
         videoType: 'prompt',
         videoPrompt: '',
@@ -240,6 +241,19 @@ function renderForm(form) {
                         placeholder="Describe what you want to post..."
                         required
                     ></textarea>
+                </div>
+
+                <!-- Gemini Prompt -->
+                <div class="form-section">
+                    <label class="section-label">
+                        Image Generation Prompt
+                    </label>
+                    <textarea 
+                        class="form-textarea" 
+                        data-field="geminiPrompt" 
+                        placeholder="Describe the image you want generated (optional)..."
+                    ></textarea>
+                    <span class="optional-label">Optional</span>
                 </div>
             </div>
 
@@ -437,6 +451,7 @@ function clearForm(formId) {
     form.page = '';
     form.platforms = [];
     form.postPrompt = '';
+    form.geminiPrompt = '';
     form.videoEnabled = false;
     form.videoType = 'prompt';
     form.videoPrompt = '';
@@ -506,23 +521,48 @@ async function submitAllForms() {
     showLoading(true);
     
     try {
+        // Clean the form data before sending
+        const cleanForms = validForms.map(form => ({
+            id: form.id,
+            pageMode: form.pageMode,
+            page: form.page || null,
+            platforms: form.platforms,
+            postPrompt: form.postPrompt,
+            geminiPrompt: form.geminiPrompt || null,
+            videoEnabled: form.videoEnabled,
+            videoType: form.videoEnabled ? form.videoType : null,
+            videoPrompt: (form.videoEnabled && form.videoType === 'prompt') ? form.videoPrompt : null,
+            imageEnabled: form.imageEnabled,
+            imageType: form.imageEnabled ? form.imageType : null,
+            imagePrompt: (form.imageEnabled && form.imageType === 'prompt') ? form.imagePrompt : null
+        }));
+
+        const payload = {
+            forms: cleanForms,
+            userId: CONFIG.GHL_USER_ID,
+            locationId: CONFIG.GHL_LOCATION_ID
+        };
+
+        console.log('Sending payload:', payload);
+        
         // Send to n8n webhook
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                forms: validForms,
-                userId: CONFIG.GHL_USER_ID,
-                locationId: CONFIG.GHL_LOCATION_ID
-            })
+            body: JSON.stringify(payload)
         });
         
+        // Get response text for better error messages
+        const responseText = await response.text();
+        
         if (!response.ok) {
-            throw new Error('Submission failed');
+            console.error('Server error:', responseText);
+            throw new Error(`Server returned ${response.status}: ${responseText}`);
         }
         
+        console.log('Success response:', responseText);
         alert('All forms submitted successfully!');
         
         // Reset
@@ -532,7 +572,7 @@ async function submitAllForms() {
         
     } catch (error) {
         console.error('Error submitting forms:', error);
-        alert('Error submitting forms. Please try again.');
+        alert(`Error submitting forms: ${error.message}`);
     } finally {
         showLoading(false);
     }
@@ -545,4 +585,3 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
-
