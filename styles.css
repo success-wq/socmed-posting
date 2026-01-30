@@ -248,6 +248,203 @@ body {
     cursor: not-allowed;
 }
 
+/* Multi-Select Dropdown */
+.multiselect-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.multiselect-display {
+    width: 100%;
+    min-height: 50px;
+    background-color: #0a0a0a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 8px 40px 8px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.multiselect-display:hover {
+    border-color: #404040;
+}
+
+.multiselect-display.open {
+    border-color: #808080;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.multiselect-display.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.multiselect-placeholder {
+    color: #606060;
+    font-size: 14px;
+    padding: 6px 0;
+}
+
+.multiselect-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.multiselect-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #4a7bc8;
+    color: #ffffff;
+    padding: 6px 10px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.multiselect-tag-remove {
+    background: none;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    transition: opacity 0.2s;
+}
+
+.multiselect-tag-remove:hover {
+    opacity: 0.7;
+}
+
+.multiselect-controls {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.multiselect-clear {
+    background: none;
+    border: none;
+    color: #808080;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transition: color 0.2s;
+}
+
+.multiselect-clear:hover {
+    color: #ffffff;
+}
+
+.multiselect-arrow {
+    color: #808080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transition: transform 0.2s;
+}
+
+.multiselect-arrow.open {
+    transform: rotate(180deg);
+}
+
+.multiselect-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #0a0a0a;
+    border: 1px solid #808080;
+    border-top: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    max-height: 300px;
+    overflow: hidden;
+    z-index: 1000;
+    display: none;
+}
+
+.multiselect-dropdown.open {
+    display: block;
+}
+
+.multiselect-search {
+    padding: 12px;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.multiselect-search-input {
+    width: 100%;
+    background-color: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    color: #ffffff;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.multiselect-search-input:focus {
+    outline: none;
+    border-color: #808080;
+}
+
+.multiselect-search-input::placeholder {
+    color: #606060;
+}
+
+.multiselect-options {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.multiselect-option {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #ffffff;
+    transition: background-color 0.2s;
+}
+
+.multiselect-option:hover {
+    background-color: #1a1a1a;
+}
+
+.multiselect-option.selected {
+    background-color: #4a7bc8;
+    color: #ffffff;
+    font-weight: 500;
+}
+
+.multiselect-option.hidden {
+    display: none;
+}
+
+.multiselect-no-results {
+    padding: 20px;
+    text-align: center;
+    color: #606060;
+    font-size: 13px;
+}
+
 /* Checkboxes */
 .checkbox-group {
     display: flex;
@@ -429,6 +626,126 @@ body {
     cursor: not-allowed;
 }
 
+/* Drafts Section */
+.drafts-section {
+    margin-top: 32px;
+    padding-top: 32px;
+    border-top: 1px solid #2a2a2a;
+}
+
+.drafts-header {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: #808080;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+}
+
+.drafts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.draft-item {
+    background-color: #0a0a0a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.draft-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.draft-header:hover {
+    background-color: #1a1a1a;
+}
+
+.draft-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+.draft-toggle-btn {
+    background-color: transparent;
+    border: 1px solid #808080;
+    color: #808080;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.draft-toggle-btn:hover {
+    background-color: #808080;
+    color: #000000;
+}
+
+.draft-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.draft-content.expanded {
+    max-height: 2000px;
+}
+
+.draft-content-inner {
+    padding: 20px;
+    border-top: 1px solid #2a2a2a;
+}
+
+.draft-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #e0e0e0;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.draft-media {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.draft-media-item {
+    width: 100%;
+}
+
+.draft-media-item img,
+.draft-media-item video {
+    width: 100%;
+    max-width: 600px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+}
+
+.draft-media-item video {
+    background-color: #000000;
+}
+
+.empty-drafts {
+    text-align: center;
+    padding: 40px;
+    color: #606060;
+    font-size: 14px;
+}
+
 /* Submit Section */
 .submit-section {
     text-align: center;
@@ -511,5 +828,13 @@ body {
 
     .form-btn {
         width: 100%;
+    }
+    
+    .draft-header {
+        padding: 12px 16px;
+    }
+    
+    .draft-content-inner {
+        padding: 16px;
     }
 }
