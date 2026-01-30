@@ -1,6 +1,7 @@
 // Configuration
 const CONFIG = {
     N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
+    N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
     GHL_LOCATION_ID: 'WXQN7BcuGraEWbKThpHB',
     GHL_TOKEN: 'pit-6f2acdd2-7183-497d-927b-c34cedef658c',
     GHL_USER_ID: 'Jq6fypbCiDz2jmMSnjj3'
@@ -839,7 +840,17 @@ function addDraft(formId, draftData) {
         text: draftData.text || '',
         image: draftData.image || null,
         video: draftData.video || null,
-        expanded: false
+        expanded: false,
+        editing: false,
+        editData: {
+            videoEnabled: false,
+            videoType: 'prompt',
+            videoPrompt: '',
+            imageEnabled: false,
+            imageType: 'prompt',
+            imagePrompt: '',
+            postPrompt: draftData.text || ''
+        }
     };
     
     console.log('📝 Draft object created:', draft);
@@ -870,31 +881,143 @@ function renderDrafts(formId) {
     console.log(`✅ Rendering ${form.drafts.length} draft(s)`);
     
     container.innerHTML = form.drafts.map(draft => `
-        <div class="draft-item" data-draft-id="${draft.id}">
+        <div class="draft-item ${draft.editing ? 'editing' : ''}" data-draft-id="${draft.id}">
             <div class="draft-header" onclick="toggleDraft(${formId}, ${draft.id})">
                 <div class="draft-title">${escapeHtml(draft.title)}</div>
-                <button class="draft-toggle-btn" onclick="event.stopPropagation(); toggleDraft(${formId}, ${draft.id})">
-                    ${draft.expanded ? 'Hide Draft' : 'Show Draft'}
-                </button>
+                <div class="draft-actions">
+                    <button class="draft-action-btn publish-btn" onclick="event.stopPropagation(); publishDraft(${formId}, ${draft.id})">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 1v14M3 8l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Publish
+                    </button>
+                    <button class="draft-action-btn edit-btn" onclick="event.stopPropagation(); toggleEditDraft(${formId}, ${draft.id})">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M11 1l4 4-9 9H2v-4l9-9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        ${draft.editing ? 'Cancel' : 'Edit'}
+                    </button>
+                    <button class="draft-toggle-btn" onclick="event.stopPropagation(); toggleDraft(${formId}, ${draft.id})">
+                        ${draft.expanded ? 'Hide' : 'Show'}
+                    </button>
+                </div>
             </div>
             <div class="draft-content ${draft.expanded ? 'expanded' : ''}">
-                <div class="draft-content-inner">
-                    ${draft.text ? `<div class="draft-text">${escapeHtml(draft.text)}</div>` : ''}
-                    ${(draft.image || draft.video) ? `
-                        <div class="draft-media">
-                            ${draft.image ? `
-                                <div class="draft-media-item">
-                                    <img src="${draft.image}" alt="Generated image" />
+                <div class="draft-layout">
+                    <div class="draft-content-main">
+                        <div class="draft-content-inner">
+                            ${draft.text ? `<div class="draft-text">${escapeHtml(draft.text)}</div>` : ''}
+                            ${(draft.image || draft.video) ? `
+                                <div class="draft-media">
+                                    ${draft.image ? `
+                                        <div class="draft-media-item">
+                                            <img src="${draft.image}" alt="Generated image" />
+                                        </div>
+                                    ` : ''}
+                                    ${draft.video ? `
+                                        <div class="draft-media-item">
+                                            <video controls>
+                                                <source src="${draft.video}" type="video/mp4">
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : ''}
-                            ${draft.video ? `
-                                <div class="draft-media-item">
-                                    <video controls>
-                                        <source src="${draft.video}" type="video/mp4">
-                                        Your browser does not support the video tag.
-                                    </video>
+                        </div>
+                    </div>
+                    ${draft.editing ? `
+                        <div class="draft-edit-form">
+                            <h3 class="edit-form-title">Edit Draft</h3>
+                            
+                            <!-- Video Option -->
+                            <div class="edit-media-option">
+                                <label class="edit-checkbox-item">
+                                    <input type="checkbox" class="edit-checkbox-input" data-draft-field="videoEnabled" ${draft.editData.videoEnabled ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this)">
+                                    <span class="edit-checkbox-label">Video</span>
+                                </label>
+                                
+                                <div class="edit-media-config" data-edit-media-config="video" style="display: ${draft.editData.videoEnabled ? 'block' : 'none'};">
+                                    <div class="edit-media-type-selector">
+                                        <label class="edit-radio-item">
+                                            <input type="radio" class="edit-radio-input" name="videoType-${formId}-${draft.id}" data-draft-field="videoType" value="prompt" ${draft.editData.videoType === 'prompt' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'video', 'prompt')">
+                                            <span class="edit-radio-label">Prompt</span>
+                                        </label>
+                                        <label class="edit-radio-item">
+                                            <input type="radio" class="edit-radio-input" name="videoType-${formId}-${draft.id}" data-draft-field="videoType" value="upload" ${draft.editData.videoType === 'upload' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'video', 'upload')">
+                                            <span class="edit-radio-label">Upload</span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="edit-media-input-container">
+                                        <textarea 
+                                            class="edit-form-textarea" 
+                                            data-draft-field="videoPrompt" 
+                                            data-edit-prompt-type="video"
+                                            placeholder="Describe the video you want generated..."
+                                            style="display: ${draft.editData.videoType === 'prompt' ? 'block' : 'none'};"
+                                            oninput="updateDraftEditData(${formId}, ${draft.id}, this)"
+                                        >${draft.editData.videoPrompt}</textarea>
+                                        <div class="edit-upload-placeholder" data-edit-upload-placeholder="video" style="display: ${draft.editData.videoType === 'upload' ? 'flex' : 'none'};">
+                                            <span>Upload coming soon...</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            ` : ''}
+                            </div>
+
+                            <!-- Image Option -->
+                            <div class="edit-media-option">
+                                <label class="edit-checkbox-item">
+                                    <input type="checkbox" class="edit-checkbox-input" data-draft-field="imageEnabled" ${draft.editData.imageEnabled ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this)">
+                                    <span class="edit-checkbox-label">Image</span>
+                                </label>
+                                
+                                <div class="edit-media-config" data-edit-media-config="image" style="display: ${draft.editData.imageEnabled ? 'block' : 'none'};">
+                                    <div class="edit-media-type-selector">
+                                        <label class="edit-radio-item">
+                                            <input type="radio" class="edit-radio-input" name="imageType-${formId}-${draft.id}" data-draft-field="imageType" value="prompt" ${draft.editData.imageType === 'prompt' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'image', 'prompt')">
+                                            <span class="edit-radio-label">Prompt</span>
+                                        </label>
+                                        <label class="edit-radio-item">
+                                            <input type="radio" class="edit-radio-input" name="imageType-${formId}-${draft.id}" data-draft-field="imageType" value="upload" ${draft.editData.imageType === 'upload' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'image', 'upload')">
+                                            <span class="edit-radio-label">Upload</span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="edit-media-input-container">
+                                        <textarea 
+                                            class="edit-form-textarea" 
+                                            data-draft-field="imagePrompt" 
+                                            data-edit-prompt-type="image"
+                                            placeholder="Describe the image you want generated..."
+                                            style="display: ${draft.editData.imageType === 'prompt' ? 'block' : 'none'};"
+                                            oninput="updateDraftEditData(${formId}, ${draft.id}, this)"
+                                        >${draft.editData.imagePrompt}</textarea>
+                                        <div class="edit-upload-placeholder" data-edit-upload-placeholder="image" style="display: ${draft.editData.imageType === 'upload' ? 'flex' : 'none'};">
+                                            <span>Upload coming soon...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Post Prompt -->
+                            <div class="edit-form-section">
+                                <label class="edit-section-label">
+                                    Post Prompt
+                                    <span class="required-indicator">*</span>
+                                </label>
+                                <textarea 
+                                    class="edit-form-textarea" 
+                                    data-draft-field="postPrompt" 
+                                    placeholder="Describe what you want to post..."
+                                    required
+                                    oninput="updateDraftEditData(${formId}, ${draft.id}, this)"
+                                >${draft.editData.postPrompt}</textarea>
+                            </div>
+
+                            <button class="save-edit-btn" onclick="saveDraftEdit(${formId}, ${draft.id})">
+                                Save Changes
+                            </button>
                         </div>
                     ` : ''}
                 </div>
@@ -912,6 +1035,193 @@ function toggleDraft(formId, draftId) {
     
     draft.expanded = !draft.expanded;
     renderDrafts(formId);
+}
+
+// Publish Draft
+async function publishDraft(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    if (!draft) return;
+    
+    if (!confirm('Publish this draft?')) return;
+    
+    showLoading(true);
+    
+    try {
+        const payload = {
+            pageTitle: draft.title,
+            textContent: draft.text
+        };
+        
+        if (draft.video) {
+            payload.video = draft.video;
+        }
+        
+        if (draft.image) {
+            payload.image = draft.image;
+        }
+        
+        console.log('📤 Publishing draft:', payload);
+        
+        const response = await fetch(CONFIG.N8N_PUBLISH_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Publish failed');
+        }
+        
+        alert('Draft published successfully!');
+        
+    } catch (error) {
+        console.error('Error publishing draft:', error);
+        alert('Error publishing draft. Please try again.');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Toggle Edit Draft
+function toggleEditDraft(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    if (!draft) return;
+    
+    draft.editing = !draft.editing;
+    
+    // Expand draft when entering edit mode
+    if (draft.editing && !draft.expanded) {
+        draft.expanded = true;
+    }
+    
+    renderDrafts(formId);
+}
+
+// Update Draft Edit Data
+function updateDraftEditData(formId, draftId, input) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    if (!draft) return;
+    
+    const field = input.dataset.draftField;
+    
+    if (field === 'videoEnabled' || field === 'imageEnabled') {
+        draft.editData[field] = input.checked;
+        
+        // Show/hide media config
+        const mediaType = field.replace('Enabled', '');
+        const draftItem = document.querySelector(`[data-draft-id="${draftId}"]`);
+        const mediaConfig = draftItem.querySelector(`[data-edit-media-config="${mediaType}"]`);
+        if (mediaConfig) {
+            mediaConfig.style.display = input.checked ? 'block' : 'none';
+        }
+    } else if (field === 'videoType' || field === 'imageType') {
+        draft.editData[field] = input.value;
+    } else {
+        draft.editData[field] = input.value;
+    }
+}
+
+// Toggle Edit Media Input
+function toggleEditMediaInput(formId, draftId, mediaType, inputType) {
+    const draftItem = document.querySelector(`[data-draft-id="${draftId}"]`);
+    if (!draftItem) return;
+    
+    const promptTextarea = draftItem.querySelector(`[data-edit-prompt-type="${mediaType}"]`);
+    const uploadPlaceholder = draftItem.querySelector(`[data-edit-upload-placeholder="${mediaType}"]`);
+    
+    if (promptTextarea && uploadPlaceholder) {
+        if (inputType === 'prompt') {
+            promptTextarea.style.display = 'block';
+            uploadPlaceholder.style.display = 'none';
+        } else {
+            promptTextarea.style.display = 'none';
+            uploadPlaceholder.style.display = 'flex';
+        }
+    }
+}
+
+// Save Draft Edit
+async function saveDraftEdit(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    if (!draft) return;
+    
+    // Validate post prompt is required
+    if (!draft.editData.postPrompt || draft.editData.postPrompt.trim() === '') {
+        alert('Post prompt is required');
+        return;
+    }
+    
+    if (!confirm('Regenerate draft with new settings?')) return;
+    
+    showLoading(true);
+    
+    try {
+        // Prepare payload similar to main form submission
+        const payload = {
+            ...form,
+            postPrompt: draft.editData.postPrompt,
+            videoEnabled: draft.editData.videoEnabled,
+            videoType: draft.editData.videoType,
+            videoPrompt: draft.editData.videoPrompt,
+            imageEnabled: draft.editData.imageEnabled,
+            imageType: draft.editData.imageType,
+            imagePrompt: draft.editData.imagePrompt,
+            userId: CONFIG.GHL_USER_ID,
+            locationId: CONFIG.GHL_LOCATION_ID
+        };
+        
+        // Remove drafts from payload
+        delete payload.drafts;
+        
+        console.log('📤 Regenerating draft:', payload);
+        
+        const response = await fetch(CONFIG.N8N_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Regeneration failed');
+        }
+        
+        const result = await response.json();
+        console.log('📥 Received from n8n:', result);
+        
+        // Transform and update the existing draft
+        if (result) {
+            const transformedResult = transformN8nResponse(result, form);
+            
+            // Update draft with new content
+            draft.text = transformedResult.text;
+            draft.image = transformedResult.image;
+            draft.video = transformedResult.video;
+            
+            // Exit edit mode
+            draft.editing = false;
+            
+            renderDrafts(formId);
+            alert('Draft regenerated successfully!');
+        }
+        
+    } catch (error) {
+        console.error('Error regenerating draft:', error);
+        alert('Error regenerating draft. Please try again.');
+    } finally {
+        showLoading(false);
+    }
 }
 
 // Escape HTML
