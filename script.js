@@ -62,7 +62,6 @@ function createForm() {
         pageTitles: [],
         platforms: [],
         postPrompt: '',
-        geminiPrompt: '',
         videoEnabled: false,
         videoType: 'prompt',
         videoPrompt: '',
@@ -270,17 +269,6 @@ function renderForm(form) {
                         placeholder="Describe what you want to post..."
                         required
                     ></textarea>
-                </div>
-
-                <!-- Gemini Prompt -->
-                <div class="form-section">
-                    <label class="section-label">Gemini Instructions</label>
-                    <textarea 
-                        class="form-textarea" 
-                        data-field="geminiPrompt" 
-                        placeholder="Optional: Provide specific instructions for AI generation..."
-                    ></textarea>
-                    <p class="optional-label">Optional: Additional context or requirements for the AI</p>
                 </div>
             </div>
 
@@ -680,7 +668,6 @@ function clearForm(formId) {
     form.pageTitles = [];
     form.platforms = [];
     form.postPrompt = '';
-    form.geminiPrompt = '';
     form.videoEnabled = false;
     form.videoType = 'prompt';
     form.videoPrompt = '';
@@ -766,10 +753,15 @@ async function saveForm(formId) {
         }
         
         const result = await response.json();
+        console.log('📥 Received from n8n:', result);
         
-        // Add draft to form
+        // Transform and add draft to form
         if (result) {
-            addDraft(formId, result);
+            console.log('✅ Adding draft to form', formId);
+            const transformedResult = transformN8nResponse(result, form);
+            addDraft(formId, transformedResult);
+        } else {
+            console.warn('⚠️ No result received from n8n');
         }
         
         alert('Form sent to n8n successfully!');
@@ -782,9 +774,64 @@ async function saveForm(formId) {
     }
 }
 
+// Transform n8n Response to UI Format
+function transformN8nResponse(n8nData, form) {
+    console.log('🔄 Transforming n8n response:', n8nData);
+    
+    // Handle array response
+    if (Array.isArray(n8nData) && n8nData.length > 0) {
+        n8nData = n8nData[0];
+    }
+    
+    // Extract text from content array
+    let text = '';
+    if (n8nData.content && Array.isArray(n8nData.content)) {
+        text = n8nData.content.join('\n\n');
+    } else if (n8nData.text) {
+        text = n8nData.text;
+    }
+    
+    // Extract video URL from video array
+    let video = null;
+    if (n8nData.video && Array.isArray(n8nData.video) && n8nData.video.length > 0) {
+        video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0];
+    } else if (n8nData.video && typeof n8nData.video === 'string') {
+        video = n8nData.video;
+    }
+    
+    // Extract image URL from image array
+    let image = null;
+    if (n8nData.image && Array.isArray(n8nData.image) && n8nData.image.length > 0) {
+        image = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0];
+    } else if (n8nData.image && typeof n8nData.image === 'string') {
+        image = n8nData.image;
+    }
+    
+    // Get title
+    const title = n8nData.title || 
+                  n8nData.pageTitle || 
+                  (form.pageTitles.length > 0 ? form.pageTitles.join(', ') : 'Draft');
+    
+    const transformed = {
+        title: title,
+        text: text,
+        image: image,
+        video: video
+    };
+    
+    console.log('✅ Transformed result:', transformed);
+    return transformed;
+}
+
 // Add Draft
 function addDraft(formId, draftData) {
+    console.log('📝 addDraft called with:', { formId, draftData });
     const form = forms.find(f => f.id === formId);
+    
+    if (!form) {
+        console.error('❌ Form not found:', formId);
+        return;
+    }
     
     const draft = {
         id: Date.now(),
@@ -795,19 +842,32 @@ function addDraft(formId, draftData) {
         expanded: false
     };
     
+    console.log('📝 Draft object created:', draft);
     form.drafts.push(draft);
+    console.log('📝 Total drafts for form:', form.drafts.length);
     renderDrafts(formId);
 }
 
 // Render Drafts
 function renderDrafts(formId) {
+    console.log('🎨 renderDrafts called for form:', formId);
     const form = forms.find(f => f.id === formId);
     const container = document.querySelector(`[data-drafts-container="${formId}"]`);
     
+    if (!container) {
+        console.error('❌ Drafts container not found for form:', formId);
+        return;
+    }
+    
+    console.log('📋 Form drafts:', form.drafts);
+    
     if (!form.drafts || form.drafts.length === 0) {
+        console.log('ℹ️ No drafts to display');
         container.innerHTML = '<div class="empty-drafts">No drafts generated yet</div>';
         return;
     }
+    
+    console.log(`✅ Rendering ${form.drafts.length} draft(s)`);
     
     container.innerHTML = form.drafts.map(draft => `
         <div class="draft-item" data-draft-id="${draft.id}">
@@ -902,12 +962,30 @@ async function submitAllForms() {
         }
         
         const result = await response.json();
+        console.log('📥 Received from n8n (bulk):', result);
         
         // Process results and add drafts
-        if (result && result.results) {
-            result.results.forEach((draftData, index) => {
+        if (result) {
+            // Handle different response formats
+            let resultsArray = [];
+            
+            if (Array.isArray(result)) {
+                // If response is an array, use it directly
+                resultsArray = result;
+            } else if (result.results && Array.isArray(result.results)) {
+                // If response has a results property with an array
+                resultsArray = result.results;
+            } else {
+                // Single result, wrap in array
+                resultsArray = [result];
+            }
+            
+            console.log(`📦 Processing ${resultsArray.length} result(s)`);
+            
+            resultsArray.forEach((draftData, index) => {
                 if (validForms[index]) {
-                    addDraft(validForms[index].id, draftData);
+                    const transformedResult = transformN8nResponse(draftData, validForms[index]);
+                    addDraft(validForms[index].id, transformedResult);
                 }
             });
         }
