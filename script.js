@@ -58,15 +58,18 @@ function createForm() {
     const form = {
         id: formId,
         pageMode: 'select',
-        page: '',
+        pages: [],
+        pageTitles: [],
         platforms: [],
         postPrompt: '',
+        geminiPrompt: '',
         videoEnabled: false,
         videoType: 'prompt',
         videoPrompt: '',
         imageEnabled: false,
         imageType: 'prompt',
-        imagePrompt: ''
+        imagePrompt: '',
+        drafts: []
     };
     
     forms.push(form);
@@ -106,16 +109,43 @@ function renderForm(form) {
                 <!-- Page Select -->
                 <div class="form-section">
                     <label class="section-label">
-                        Select Page
+                        Select Pages
                         <span class="required-indicator">*</span>
                     </label>
-                    <div class="select-wrapper">
-                        <select class="form-select" data-field="page" required>
-                            <option value="">Choose a page...</option>
-                            ${accounts.map(acc => `
-                                <option value="${acc.id}">${acc.name} (${acc.platform})</option>
-                            `).join('')}
-                        </select>
+                    <div class="multiselect-wrapper" data-multiselect="${form.id}">
+                        <div class="multiselect-display" data-multiselect-display="${form.id}">
+                            <div class="multiselect-placeholder">Choose pages...</div>
+                            <div class="multiselect-tags" data-multiselect-tags="${form.id}"></div>
+                            <div class="multiselect-controls">
+                                <button type="button" class="multiselect-clear" data-multiselect-clear="${form.id}" style="display: none;">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <div class="multiselect-arrow">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="multiselect-dropdown" data-multiselect-dropdown="${form.id}">
+                            <div class="multiselect-search">
+                                <input 
+                                    type="text" 
+                                    class="multiselect-search-input" 
+                                    data-multiselect-search="${form.id}"
+                                    placeholder="Search pages..."
+                                >
+                            </div>
+                            <div class="multiselect-options" data-multiselect-options="${form.id}">
+                                ${accounts.map(acc => `
+                                    <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
+                                        ${acc.name} (${acc.platform})
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -231,7 +261,7 @@ function renderForm(form) {
                 <!-- Post Prompt -->
                 <div class="form-section">
                     <label class="section-label">
-                        Post Content Prompt
+                        Post Prompt
                         <span class="required-indicator">*</span>
                     </label>
                     <textarea 
@@ -241,26 +271,51 @@ function renderForm(form) {
                         required
                     ></textarea>
                 </div>
+
+                <!-- Gemini Prompt -->
+                <div class="form-section">
+                    <label class="section-label">Gemini Instructions</label>
+                    <textarea 
+                        class="form-textarea" 
+                        data-field="geminiPrompt" 
+                        placeholder="Optional: Provide specific instructions for AI generation..."
+                    ></textarea>
+                    <p class="optional-label">Optional: Additional context or requirements for the AI</p>
+                </div>
+            </div>
+
+            <!-- Drafts Section -->
+            <div class="drafts-section">
+                <div class="drafts-header">Generated Drafts</div>
+                <div class="drafts-container" data-drafts-container="${form.id}">
+                    <div class="empty-drafts">No drafts generated yet</div>
+                </div>
             </div>
 
             <!-- Form Actions -->
             <div class="form-actions">
-                <button class="form-btn btn-previous" onclick="previousForm()" ${form.id === 1 ? 'disabled' : ''}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <button class="form-btn btn-previous" onclick="previousForm()" ${currentFormIndex === 0 ? 'disabled' : ''}>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     Previous
                 </button>
                 <button class="form-btn btn-clear" onclick="clearForm(${form.id})">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M5 5l10 10M15 5l-10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
                     Clear
                 </button>
                 <button class="form-btn btn-send" onclick="saveForm(${form.id})">
-                    Send Form
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M18 10l-8-8-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Send to n8n
                 </button>
                 <button class="form-btn btn-next" onclick="nextForm()">
                     Next
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M6 12l4-4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
             </div>
@@ -268,72 +323,258 @@ function renderForm(form) {
     `;
     
     formsContainer.insertAdjacentHTML('beforeend', formHTML);
-    attachFormListeners(form.id);
-}
-
-// Attach Form Listeners
-function attachFormListeners(formId) {
-    const formElement = document.querySelector(`[data-form-id="${formId}"]`);
-    const inputs = formElement.querySelectorAll('[data-field]');
     
-    inputs.forEach(input => {
-        input.addEventListener('change', (e) => {
-            updateFormData(formId, e.target);
-            
-            // Handle page mode change
-            if (e.target.dataset.field === 'pageMode') {
-                togglePageDropdown(formId, e.target.value);
-            }
-            
-            // Handle media enable/disable
-            if (e.target.dataset.mediaType) {
-                toggleMediaConfig(formId, e.target.dataset.mediaType, e.target.checked);
-            }
-            
-            // Handle media type change (prompt vs upload)
-            if (e.target.dataset.field === 'videoType' || e.target.dataset.field === 'imageType') {
-                const mediaType = e.target.dataset.field === 'videoType' ? 'video' : 'image';
-                toggleMediaInput(formId, mediaType, e.target.value);
-            }
+    // Setup event listeners for this form
+    const formElement = document.querySelector(`[data-form-id="${form.id}"]`);
+    
+    // Radio buttons for page mode
+    formElement.querySelectorAll('[data-field="pageMode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            updateFormData(form.id, e.target);
+            togglePageDropdown(form.id, e.target.value);
+        });
+    });
+    
+    // Multi-select setup
+    setupMultiSelect(form.id);
+    
+    // Platform checkboxes
+    formElement.querySelectorAll('[data-field="platforms"]').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            updateFormData(form.id, e.target);
+        });
+    });
+    
+    // Media checkboxes
+    formElement.querySelectorAll('[data-media-type]').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const mediaType = e.target.dataset.mediaType;
+            toggleMediaConfig(form.id, mediaType, e.target.checked);
+            updateFormData(form.id, e.target);
+        });
+    });
+    
+    // Media type radio buttons
+    formElement.querySelectorAll('[data-field="videoType"], [data-field="imageType"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const mediaType = e.target.name.includes('video') ? 'video' : 'image';
+            toggleMediaInput(form.id, mediaType, e.target.value);
+            updateFormData(form.id, e.target);
+        });
+    });
+    
+    // Textareas
+    formElement.querySelectorAll('textarea').forEach(textarea => {
+        textarea.addEventListener('input', (e) => {
+            updateFormData(form.id, e.target);
         });
     });
 }
 
-// Toggle page dropdown based on mode
+// Toggle Page Dropdown
 function togglePageDropdown(formId, mode) {
     const formElement = document.querySelector(`[data-form-id="${formId}"]`);
-    const pageSelect = formElement.querySelector('[data-field="page"]');
+    const multiselectDisplay = formElement.querySelector(`[data-multiselect-display="${formId}"]`);
     
     if (mode === 'all') {
-        pageSelect.disabled = true;
-        pageSelect.style.opacity = '0.4';
-        pageSelect.style.cursor = 'not-allowed';
-        pageSelect.value = '';
+        multiselectDisplay.classList.add('disabled');
+        multiselectDisplay.style.pointerEvents = 'none';
+        // Clear selected pages
+        const form = forms.find(f => f.id === formId);
+        form.pages = [];
+        form.pageTitles = [];
+        renderMultiSelectTags(formId);
     } else {
-        pageSelect.disabled = false;
-        pageSelect.style.opacity = '1';
-        pageSelect.style.cursor = 'pointer';
+        multiselectDisplay.classList.remove('disabled');
+        multiselectDisplay.style.pointerEvents = 'auto';
     }
 }
 
-// Toggle media configuration visibility
-function toggleMediaConfig(formId, mediaType, enabled) {
+// Setup Multi-Select
+function setupMultiSelect(formId) {
+    const display = document.querySelector(`[data-multiselect-display="${formId}"]`);
+    const dropdown = document.querySelector(`[data-multiselect-dropdown="${formId}"]`);
+    const searchInput = document.querySelector(`[data-multiselect-search="${formId}"]`);
+    const optionsContainer = document.querySelector(`[data-multiselect-options="${formId}"]`);
+    const clearBtn = document.querySelector(`[data-multiselect-clear="${formId}"]`);
+    const arrow = display.querySelector('.multiselect-arrow');
+    
+    // Toggle dropdown
+    display.addEventListener('click', (e) => {
+        if (display.classList.contains('disabled')) return;
+        
+        const isOpen = dropdown.classList.contains('open');
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.multiselect-dropdown.open').forEach(d => {
+            d.classList.remove('open');
+        });
+        document.querySelectorAll('.multiselect-display.open').forEach(d => {
+            d.classList.remove('open');
+        });
+        document.querySelectorAll('.multiselect-arrow.open').forEach(a => {
+            a.classList.remove('open');
+        });
+        
+        if (!isOpen) {
+            dropdown.classList.add('open');
+            display.classList.add('open');
+            arrow.classList.add('open');
+            searchInput.focus();
+        }
+    });
+    
+    // Search functionality
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const options = optionsContainer.querySelectorAll('.multiselect-option');
+        let hasVisibleOptions = false;
+        
+        options.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                option.classList.remove('hidden');
+                hasVisibleOptions = true;
+            } else {
+                option.classList.add('hidden');
+            }
+        });
+        
+        // Show/hide no results message
+        let noResultsMsg = optionsContainer.querySelector('.multiselect-no-results');
+        if (!hasVisibleOptions) {
+            if (!noResultsMsg) {
+                noResultsMsg = document.createElement('div');
+                noResultsMsg.className = 'multiselect-no-results';
+                noResultsMsg.textContent = 'No pages found';
+                optionsContainer.appendChild(noResultsMsg);
+            }
+        } else if (noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    });
+    
+    // Option selection
+    optionsContainer.addEventListener('click', (e) => {
+        const option = e.target.closest('.multiselect-option');
+        if (!option || option.classList.contains('hidden')) return;
+        
+        const optionId = option.dataset.optionId;
+        const optionName = option.dataset.optionName;
+        const form = forms.find(f => f.id === formId);
+        
+        if (option.classList.contains('selected')) {
+            // Deselect
+            option.classList.remove('selected');
+            const index = form.pages.indexOf(optionId);
+            if (index > -1) {
+                form.pages.splice(index, 1);
+                form.pageTitles.splice(index, 1);
+            }
+        } else {
+            // Select
+            option.classList.add('selected');
+            form.pages.push(optionId);
+            const account = accounts.find(acc => acc.id === optionId);
+            if (account) {
+                form.pageTitles.push(account.name);
+            }
+        }
+        
+        renderMultiSelectTags(formId);
+    });
+    
+    // Clear all
+    clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const form = forms.find(f => f.id === formId);
+        form.pages = [];
+        form.pageTitles = [];
+        
+        // Deselect all options
+        optionsContainer.querySelectorAll('.multiselect-option.selected').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        renderMultiSelectTags(formId);
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest(`[data-multiselect="${formId}"]`)) {
+            dropdown.classList.remove('open');
+            display.classList.remove('open');
+            arrow.classList.remove('open');
+            searchInput.value = '';
+            
+            // Reset search
+            optionsContainer.querySelectorAll('.multiselect-option').forEach(opt => {
+                opt.classList.remove('hidden');
+            });
+            const noResultsMsg = optionsContainer.querySelector('.multiselect-no-results');
+            if (noResultsMsg) noResultsMsg.remove();
+        }
+    });
+}
+
+// Render Multi-Select Tags
+function renderMultiSelectTags(formId) {
+    const form = forms.find(f => f.id === formId);
+    const tagsContainer = document.querySelector(`[data-multiselect-tags="${formId}"]`);
+    const placeholder = document.querySelector(`[data-multiselect-display="${formId}"] .multiselect-placeholder`);
+    const clearBtn = document.querySelector(`[data-multiselect-clear="${formId}"]`);
+    
+    if (form.pages.length === 0) {
+        tagsContainer.innerHTML = '';
+        placeholder.style.display = 'block';
+        clearBtn.style.display = 'none';
+        return;
+    }
+    
+    placeholder.style.display = 'none';
+    clearBtn.style.display = 'flex';
+    
+    tagsContainer.innerHTML = form.pages.map((pageId, index) => {
+        const pageName = form.pageTitles[index] || 'Unknown';
+        
+        return `
+            <div class="multiselect-tag">
+                <span>${pageName}</span>
+                <button type="button" class="multiselect-tag-remove" onclick="removeMultiSelectTag(${formId}, '${pageId}')">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+// Remove Multi-Select Tag
+function removeMultiSelectTag(formId, pageId) {
+    const form = forms.find(f => f.id === formId);
+    const index = form.pages.indexOf(pageId);
+    
+    if (index > -1) {
+        form.pages.splice(index, 1);
+        form.pageTitles.splice(index, 1);
+    }
+    
+    // Deselect in dropdown
+    const option = document.querySelector(`[data-multiselect-options="${formId}"] [data-option-id="${pageId}"]`);
+    if (option) option.classList.remove('selected');
+    
+    renderMultiSelectTags(formId);
+}
+
+// Toggle Media Config
+function toggleMediaConfig(formId, mediaType, show) {
     const formElement = document.querySelector(`[data-form-id="${formId}"]`);
     const mediaConfig = formElement.querySelector(`[data-media-config="${mediaType}"]`);
-    
-    mediaConfig.style.display = enabled ? 'block' : 'none';
-    
-    // Reset media type to prompt when disabling
-    if (!enabled) {
-        const promptRadio = formElement.querySelector(`[data-field="${mediaType}Type"][value="prompt"]`);
-        if (promptRadio) {
-            promptRadio.checked = true;
-            toggleMediaInput(formId, mediaType, 'prompt');
-        }
-    }
+    mediaConfig.style.display = show ? 'block' : 'none';
 }
 
-// Toggle between prompt and upload input
+// Toggle Media Input
 function toggleMediaInput(formId, mediaType, inputType) {
     const formElement = document.querySelector(`[data-form-id="${formId}"]`);
     const promptTextarea = formElement.querySelector(`[data-prompt-type="${mediaType}"]`);
@@ -359,7 +600,8 @@ function updateFormData(formId, input) {
     } else if (field === 'pageMode') {
         form.pageMode = input.value;
         if (input.value === 'all') {
-            form.page = '';
+            form.pages = [];
+            form.pageTitles = [];
         }
     } else if (field === 'videoEnabled') {
         form.videoEnabled = input.checked;
@@ -434,15 +676,30 @@ function clearForm(formId) {
     
     const form = forms.find(f => f.id === formId);
     form.pageMode = 'select';
-    form.page = '';
+    form.pages = [];
+    form.pageTitles = [];
     form.platforms = [];
     form.postPrompt = '';
+    form.geminiPrompt = '';
     form.videoEnabled = false;
     form.videoType = 'prompt';
     form.videoPrompt = '';
     form.imageEnabled = false;
     form.imageType = 'prompt';
     form.imagePrompt = '';
+    
+    // Clear multi-select
+    const optionsContainer = formElement.querySelector(`[data-multiselect-options="${formId}"]`);
+    if (optionsContainer) {
+        optionsContainer.querySelectorAll('.multiselect-option.selected').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+    }
+    renderMultiSelectTags(formId);
+    
+    // Clear drafts
+    form.drafts = [];
+    renderDrafts(formId);
 }
 
 // Delete Form
@@ -465,13 +722,13 @@ function deleteForm(formId) {
     switchToForm(currentFormIndex);
 }
 
-// Save Form
-function saveForm(formId) {
+// Save Form (Send to n8n)
+async function saveForm(formId) {
     const form = forms.find(f => f.id === formId);
     
     // Validate
-    if (form.pageMode === 'select' && !form.page) {
-        alert('Please select a page');
+    if (form.pageMode === 'select' && form.pages.length === 0) {
+        alert('Please select at least one page');
         return;
     }
     
@@ -485,14 +742,130 @@ function saveForm(formId) {
         return;
     }
     
-    alert(`Form ${formId} saved! Total forms saved: ${forms.filter(f => (f.pageMode === 'all' || f.page) && f.postPrompt).length}`);
+    showLoading(true);
+    
+    try {
+        // Prepare clean payload without drafts
+        const { drafts, ...formData } = form;
+        
+        // Send to n8n webhook using original structure
+        const response = await fetch(CONFIG.N8N_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ...formData,
+                userId: CONFIG.GHL_USER_ID,
+                locationId: CONFIG.GHL_LOCATION_ID
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Submission failed');
+        }
+        
+        const result = await response.json();
+        
+        // Add draft to form
+        if (result) {
+            addDraft(formId, result);
+        }
+        
+        alert('Form sent to n8n successfully!');
+        
+    } catch (error) {
+        console.error('Error sending form:', error);
+        alert('Error sending form. Please try again.');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Add Draft
+function addDraft(formId, draftData) {
+    const form = forms.find(f => f.id === formId);
+    
+    const draft = {
+        id: Date.now(),
+        title: draftData.title || draftData.pageTitle || (form.pageTitles.length > 0 ? form.pageTitles.join(', ') : 'Draft'),
+        text: draftData.text || '',
+        image: draftData.image || null,
+        video: draftData.video || null,
+        expanded: false
+    };
+    
+    form.drafts.push(draft);
+    renderDrafts(formId);
+}
+
+// Render Drafts
+function renderDrafts(formId) {
+    const form = forms.find(f => f.id === formId);
+    const container = document.querySelector(`[data-drafts-container="${formId}"]`);
+    
+    if (!form.drafts || form.drafts.length === 0) {
+        container.innerHTML = '<div class="empty-drafts">No drafts generated yet</div>';
+        return;
+    }
+    
+    container.innerHTML = form.drafts.map(draft => `
+        <div class="draft-item" data-draft-id="${draft.id}">
+            <div class="draft-header" onclick="toggleDraft(${formId}, ${draft.id})">
+                <div class="draft-title">${escapeHtml(draft.title)}</div>
+                <button class="draft-toggle-btn" onclick="event.stopPropagation(); toggleDraft(${formId}, ${draft.id})">
+                    ${draft.expanded ? 'Hide Draft' : 'Show Draft'}
+                </button>
+            </div>
+            <div class="draft-content ${draft.expanded ? 'expanded' : ''}">
+                <div class="draft-content-inner">
+                    ${draft.text ? `<div class="draft-text">${escapeHtml(draft.text)}</div>` : ''}
+                    ${(draft.image || draft.video) ? `
+                        <div class="draft-media">
+                            ${draft.image ? `
+                                <div class="draft-media-item">
+                                    <img src="${draft.image}" alt="Generated image" />
+                                </div>
+                            ` : ''}
+                            ${draft.video ? `
+                                <div class="draft-media-item">
+                                    <video controls>
+                                        <source src="${draft.video}" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Toggle Draft
+function toggleDraft(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    if (!draft) return;
+    
+    draft.expanded = !draft.expanded;
+    renderDrafts(formId);
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Submit All Forms
 async function submitAllForms() {
     // Validate all forms
     const validForms = forms.filter(f => {
-        const hasValidPage = f.pageMode === 'all' || f.page;
+        const hasValidPage = f.pageMode === 'all' || f.pages.length > 0;
         return hasValidPage && f.platforms.length > 0 && f.postPrompt;
     });
     
@@ -506,42 +879,44 @@ async function submitAllForms() {
     showLoading(true);
     
     try {
-        const payload = {
-            forms: validForms,
-            userId: CONFIG.GHL_USER_ID,
-            locationId: CONFIG.GHL_LOCATION_ID
-        };
-
-        console.log('Sending payload:', payload);
+        // Prepare clean forms without drafts using original structure
+        const cleanForms = validForms.map(form => {
+            const { drafts, ...formData } = form;
+            return formData;
+        });
         
-        // Send to n8n webhook
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                forms: cleanForms,
+                userId: CONFIG.GHL_USER_ID,
+                locationId: CONFIG.GHL_LOCATION_ID
+            })
         });
         
-        // Get response text for better error messages
-        const responseText = await response.text();
-        
         if (!response.ok) {
-            console.error('Server error:', responseText);
-            throw new Error(`Server returned ${response.status}: ${responseText}`);
+            throw new Error('Submission failed');
         }
         
-        console.log('Success response:', responseText);
-        alert('All forms submitted successfully!');
+        const result = await response.json();
         
-        // Reset
-        forms = [];
-        formsContainer.innerHTML = '';
-        createForm();
+        // Process results and add drafts
+        if (result && result.results) {
+            result.results.forEach((draftData, index) => {
+                if (validForms[index]) {
+                    addDraft(validForms[index].id, draftData);
+                }
+            });
+        }
+        
+        alert('All forms submitted successfully!');
         
     } catch (error) {
         console.error('Error submitting forms:', error);
-        alert(`Error submitting forms: ${error.message}`);
+        alert('Error submitting forms. Please try again.');
     } finally {
         showLoading(false);
     }
