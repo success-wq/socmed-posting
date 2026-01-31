@@ -178,11 +178,11 @@ function renderForm(form) {
                     <!-- Video Option -->
                     <div class="media-option">
                         <label class="checkbox-item media-checkbox">
-                            <input type="checkbox" class="checkbox-input" data-field="videoEnabled" data-media-type="video">
+                            <input type="checkbox" class="checkbox-input" data-field="videoEnabled" data-media-type="video" ${form.videoEnabled ? 'checked' : ''}>
                             <span class="checkbox-label">Video</span>
                         </label>
                         
-                        <div class="media-config" data-media-config="video" style="display: none;">
+                        <div class="media-config" data-media-config="video" style="display: ${form.videoEnabled ? 'block' : 'none'};">
                             <div class="media-type-selector">
                                 <label class="radio-item">
                                     <input type="radio" class="radio-input" name="videoType-${form.id}" data-field="videoType" value="prompt" checked>
@@ -219,11 +219,11 @@ function renderForm(form) {
                     <!-- Image Option -->
                     <div class="media-option">
                         <label class="checkbox-item media-checkbox">
-                            <input type="checkbox" class="checkbox-input" data-field="imageEnabled" data-media-type="image">
+                            <input type="checkbox" class="checkbox-input" data-field="imageEnabled" data-media-type="image" ${form.imageEnabled ? 'checked' : ''}>
                             <span class="checkbox-label">Image</span>
                         </label>
                         
-                        <div class="media-config" data-media-config="image" style="display: none;">
+                        <div class="media-config" data-media-config="image" style="display: ${form.imageEnabled ? 'block' : 'none'};">
                             <div class="media-type-selector">
                                 <label class="radio-item">
                                     <input type="radio" class="radio-input" name="imageType-${form.id}" data-field="imageType" value="prompt" checked>
