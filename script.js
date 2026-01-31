@@ -756,11 +756,17 @@ async function saveForm(formId) {
         const result = await response.json();
         console.log('📥 Received from n8n:', result);
         
-        // Transform and add draft to form
+        // Transform and add drafts to form
         if (result) {
-            console.log('✅ Adding draft to form', formId);
-            const transformedResult = transformN8nResponse(result, form);
-            addDraft(formId, transformedResult);
+            // Handle array response (one per pageTitle)
+            let resultsArray = Array.isArray(result) ? result : [result];
+            
+            console.log(`✅ Adding ${resultsArray.length} draft(s) to form ${formId}`);
+            
+            resultsArray.forEach(draftData => {
+                const transformedResult = transformN8nResponse(draftData, form);
+                addDraft(formId, transformedResult);
+            });
         } else {
             console.warn('⚠️ No result received from n8n');
         }
@@ -819,10 +825,8 @@ function transformN8nResponse(n8nData, form) {
         }
     }
     
-    // Get title
-    const title = n8nData.title || 
-                  n8nData.pageTitle || 
-                  (form.pageTitles.length > 0 ? form.pageTitles.join(', ') : 'Draft');
+    // Get title from webhook response only (no fallback to form.pageTitles array)
+    const title = n8nData.pageTitle || n8nData.title || 'Draft';
     
     const transformed = {
         title: title,
@@ -847,7 +851,7 @@ function addDraft(formId, draftData) {
     
     const draft = {
         id: Date.now(),
-        title: draftData.title || draftData.pageTitle || (form.pageTitles.length > 0 ? form.pageTitles.join(', ') : 'Draft'),
+        title: draftData.title || draftData.pageTitle || 'Draft',
         text: draftData.text || '',
         image: draftData.image || null,
         video: draftData.video || null,
@@ -1303,12 +1307,26 @@ async function submitAllForms() {
             
             console.log(`📦 Processing ${resultsArray.length} result(s)`);
             
-            resultsArray.forEach((draftData, index) => {
-                if (validForms[index]) {
-                    const transformedResult = transformN8nResponse(draftData, validForms[index]);
-                    addDraft(validForms[index].id, transformedResult);
+            // Check if results are grouped by form or flat (single form)
+            if (resultsArray.length > 0 && resultsArray[0].formIndex !== undefined) {
+                // Results have formIndex, group by form
+                resultsArray.forEach(item => {
+                    const formIndex = item.formIndex;
+                    if (validForms[formIndex]) {
+                        const transformedResult = transformN8nResponse(item, validForms[formIndex]);
+                        addDraft(validForms[formIndex].id, transformedResult);
+                    }
+                });
+            } else {
+                // Flat results, assume single form with multiple pageTitles
+                if (validForms.length > 0) {
+                    const targetForm = validForms[0];
+                    resultsArray.forEach(draftData => {
+                        const transformedResult = transformN8nResponse(draftData, targetForm);
+                        addDraft(targetForm.id, transformedResult);
+                    });
                 }
-            });
+            }
         }
         
         alert('All forms submitted successfully!');
