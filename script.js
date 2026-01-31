@@ -1372,6 +1372,47 @@ function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
 }
 
+// ==============================
+// Load drafts from n8n (GET)
+// ==============================
+async function loadDrafts() {
+    try {
+        const res = await fetch(
+            'https://bsmteam.app.n8n.cloud/webhook/socmed-feed'
+        );
+
+        if (!res.ok) {
+            throw new Error('Failed to load drafts');
+        }
+
+        const drafts = await res.json();
+
+        // Expecting an array of:
+        // { pageTitle, content, image?, video? }
+        drafts.forEach(draft => {
+            const transformed = {
+                title: draft.pageTitle,
+                text: draft.content,
+                image: draft.image || null,
+                video: draft.video || null
+            };
+
+            // Add drafts to FIRST form by default
+            if (forms.length > 0) {
+                addDraft(forms[0].id, transformed);
+            }
+        });
+
+    } catch (err) {
+        console.error('Error loading drafts:', err);
+    }
+}
+
+
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', async () => {
+    await init();       // existing UI setup
+    await loadDrafts(); // fetch drafts from n8n
+});
+
 
