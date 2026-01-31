@@ -766,6 +766,34 @@ async function saveForm(formId) {
             resultsArray.forEach(draftData => {
                 const transformedResult = transformN8nResponse(draftData, form);
                 addDraft(formId, transformedResult);
+
+                //added inside the loop to handle http request post - v202602.01
+
+                const payload = {
+                    pageTitle: transformedResult.title,
+                    content: transformedResult.text
+                };
+                
+                // only attach if present
+                if (transformedResult.image) {
+                    payload.image = transformedResult.image;
+                }
+                
+                if (transformedResult.video) {
+                    payload.video = transformedResult.video;
+                }
+                
+                // POST to your script.js receiver
+                await fetch('/script.js', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                //end of newly added snipped
+
+                
             });
         } else {
             console.warn('⚠️ No result received from n8n');
@@ -1346,3 +1374,4 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
