@@ -803,9 +803,20 @@ function transformN8nResponse(n8nData, form) {
     // Extract image URL from image array
     let image = null;
     if (n8nData.image && Array.isArray(n8nData.image) && n8nData.image.length > 0) {
-        image = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0];
+        const imageData = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0];
+        // If it's raw base64 (no data: prefix), convert to data URL
+        if (imageData && !imageData.startsWith('http') && !imageData.startsWith('data:')) {
+            image = `data:image/png;base64,${imageData}`;
+        } else {
+            image = imageData;
+        }
     } else if (n8nData.image && typeof n8nData.image === 'string') {
-        image = n8nData.image;
+        // If it's raw base64 (no data: prefix), convert to data URL
+        if (!n8nData.image.startsWith('http') && !n8nData.image.startsWith('data:')) {
+            image = `data:image/png;base64,${n8nData.image}`;
+        } else {
+            image = n8nData.image;
+        }
     }
     
     // Get title
