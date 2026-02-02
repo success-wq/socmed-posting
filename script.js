@@ -870,12 +870,24 @@ function transformN8nResponse(n8nData, form) {
         pageId = pageId[0] || null;
     }
     
+    // Find the corresponding row in spreadsheet data
+    const pageIndex = pageId ? parseInt(pageId.replace('page-', '')) : null;
+    const rowData = (pageIndex !== null && spreadsheetData[pageIndex]) ? spreadsheetData[pageIndex] : {};
+    
     const transformed = {
         pageId: pageId,
         title: title,
         text: text,
         image: image,
-        video: video
+        video: video,
+        // Store hidden row data with the draft
+        rowData: {
+            area: rowData.area || '',
+            pageTitle: rowData.pageTitle || '',
+            metaPageId: rowData.metaPageId || '',
+            ghlLocationId: rowData.ghlLocationId || '',
+            ghlApiKey: rowData.ghlApiKey || ''
+        }
     };
     
     console.log('✅ Transformed result:', transformed);
@@ -1118,6 +1130,15 @@ async function publishDraft(formId, draftId) {
         
         if (draft.image) {
             payload.image = draft.image;
+        }
+        
+        // Add hidden row data fields
+        if (draft.rowData) {
+            payload.area = draft.rowData.area || '';
+            payload.pageTitle = draft.rowData.pageTitle || '';
+            payload.metaPageId = draft.rowData.metaPageId || '';
+            payload.ghlLocationId = draft.rowData.ghlLocationId || '';
+            payload.ghlApiKey = draft.rowData.ghlApiKey || '';
         }
         
         console.log('📤 Publishing draft:', payload);
