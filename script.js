@@ -24,7 +24,6 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 // Initialize
 async function init() {
     await loadSpreadsheetData();
-    await loadAccounts();
     createForm();
     setupEventListeners();
 }
@@ -165,9 +164,9 @@ function renderForm(form) {
                                 >
                             </div>
                             <div class="multiselect-options" data-multiselect-options="${form.id}">
-                                ${accounts.map(acc => `
-                                    <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
-                                        ${acc.name} (${acc.platform})
+                                ${spreadsheetData.map((row, index) => `
+                                    <div class="multiselect-option" data-option-id="${index}" data-option-name="${row.pageTitle}">
+                                        ${row.pageTitle}
                                     </div>
                                 `).join('')}
                             </div>
