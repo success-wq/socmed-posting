@@ -1224,22 +1224,26 @@ async function saveDraftEdit(formId, draftId) {
     showLoading(true);
     
     try {
-        // Prepare payload similar to main form submission
+        // Prepare payload with forms array structure for n8n
+        // Send ONLY this specific draft's data, not all forms
         const payload = {
-            ...form,
-            postPrompt: draft.editData.postPrompt,
-            videoEnabled: draft.editData.videoEnabled,
-            videoType: draft.editData.videoType,
-            videoPrompt: draft.editData.videoPrompt,
-            imageEnabled: draft.editData.imageEnabled,
-            imageType: draft.editData.imageType,
-            imagePrompt: draft.editData.imagePrompt,
+            forms: [{
+                id: form.id,
+                pageMode: 'select',
+                pages: [draft.id],           // Only this draft's page ID
+                pageTitles: [draft.title],    // Only this draft's title
+                platforms: form.platforms,    // Platforms from form
+                postPrompt: draft.editData.postPrompt,
+                videoEnabled: draft.editData.videoEnabled,
+                videoType: draft.editData.videoType,
+                videoPrompt: draft.editData.videoPrompt,
+                imageEnabled: draft.editData.imageEnabled,
+                imageType: draft.editData.imageType,
+                imagePrompt: draft.editData.imagePrompt
+            }],
             userId: CONFIG.GHL_USER_ID,
             locationId: CONFIG.GHL_LOCATION_ID
         };
-        
-        // Remove drafts from payload
-        delete payload.drafts;
         
         console.log('📤 Regenerating draft:', payload);
         
