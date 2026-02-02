@@ -850,7 +850,7 @@ function addDraft(formId, draftData) {
     }
     
     const draft = {
-        id: Date.now() + Math.random(), // Prevent ID collisions
+        id: draftData.pageId || Date.now() + Math.random(), // Use pageId if available
         title: draftData.title || draftData.pageTitle || 'Draft',
         text: draftData.text || '',
         image: draftData.image || null,
