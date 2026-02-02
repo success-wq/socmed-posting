@@ -430,135 +430,181 @@ function setupFormEventListeners(formId) {
 
 // Setup Multi-Select
 function setupMultiSelect(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) return;
-    
     const display = document.querySelector(`[data-multiselect-display="${formId}"]`);
     const dropdown = document.querySelector(`[data-multiselect-dropdown="${formId}"]`);
     const searchInput = document.querySelector(`[data-multiselect-search="${formId}"]`);
     const optionsContainer = document.querySelector(`[data-multiselect-options="${formId}"]`);
-    const tagsContainer = document.querySelector(`[data-multiselect-tags="${formId}"]`);
     const clearBtn = document.querySelector(`[data-multiselect-clear="${formId}"]`);
-    const placeholder = display.querySelector('.multiselect-placeholder');
-    
-    if (!display || !dropdown) return;
+    const arrow = display.querySelector('.multiselect-arrow');
     
     // Toggle dropdown
     display.addEventListener('click', (e) => {
-        if (e.target.closest('.multiselect-clear')) return;
-        dropdown.classList.toggle('active');
+        if (display.classList.contains('disabled')) return;
+        
+        const isOpen = dropdown.classList.contains('open');
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.multiselect-dropdown.open').forEach(d => {
+            d.classList.remove('open');
+        });
+        document.querySelectorAll('.multiselect-display.open').forEach(d => {
+            d.classList.remove('open');
+        });
+        document.querySelectorAll('.multiselect-arrow.open').forEach(a => {
+            a.classList.remove('open');
+        });
+        
+        if (!isOpen) {
+            dropdown.classList.add('open');
+            display.classList.add('open');
+            arrow.classList.add('open');
+            searchInput.focus();
+        }
+    });
+    
+    // Search functionality
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const options = optionsContainer.querySelectorAll('.multiselect-option');
+        let hasVisibleOptions = false;
+        
+        options.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                option.classList.remove('hidden');
+                hasVisibleOptions = true;
+            } else {
+                option.classList.add('hidden');
+            }
+        });
+        
+        // Show/hide no results message
+        let noResultsMsg = optionsContainer.querySelector('.multiselect-no-results');
+        if (!hasVisibleOptions) {
+            if (!noResultsMsg) {
+                noResultsMsg = document.createElement('div');
+                noResultsMsg.className = 'multiselect-no-results';
+                noResultsMsg.textContent = 'No pages found';
+                optionsContainer.appendChild(noResultsMsg);
+            }
+        } else if (noResultsMsg) {
+            noResultsMsg.remove();
+        }
+    });
+    
+    // Option selection
+    optionsContainer.addEventListener('click', (e) => {
+        const option = e.target.closest('.multiselect-option');
+        if (!option || option.classList.contains('hidden')) return;
+        
+        const optionId = option.dataset.optionId;
+        const optionName = option.dataset.optionName;
+        const form = forms.find(f => f.id === formId);
+        
+        if (option.classList.contains('selected')) {
+            // Deselect
+            option.classList.remove('selected');
+            const index = form.pages.indexOf(optionId);
+            if (index > -1) {
+                form.pages.splice(index, 1);
+                form.pageTitles.splice(index, 1);
+            }
+        } else {
+            // Select
+            option.classList.add('selected');
+            form.pages.push(optionId);
+            const account = accounts.find(acc => acc.id === optionId);
+            if (account) {
+                form.pageTitles.push(account.name);
+            }
+        }
+        
+        renderMultiSelectTags(formId);
+    });
+    
+    // Clear all
+    clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const form = forms.find(f => f.id === formId);
+        form.pages = [];
+        form.pageTitles = [];
+        
+        // Deselect all options
+        optionsContainer.querySelectorAll('.multiselect-option.selected').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+        
+        renderMultiSelectTags(formId);
     });
     
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest(`[data-multiselect="${formId}"]`)) {
-            dropdown.classList.remove('active');
+            dropdown.classList.remove('open');
+            display.classList.remove('open');
+            arrow.classList.remove('open');
+            searchInput.value = '';
+            
+            // Reset search
+            optionsContainer.querySelectorAll('.multiselect-option').forEach(opt => {
+                opt.classList.remove('hidden');
+            });
+            const noResultsMsg = optionsContainer.querySelector('.multiselect-no-results');
+            if (noResultsMsg) noResultsMsg.remove();
         }
     });
-    
-    // Search functionality
-    if (searchInput && optionsContainer) {
-        searchInput.addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const options = optionsContainer.querySelectorAll('.multiselect-option');
-            
-            options.forEach(option => {
-                const optionName = option.dataset.optionName.toLowerCase();
-                option.style.display = optionName.includes(searchTerm) ? 'block' : 'none';
-            });
-        });
-    }
-    
-    // Option selection
-    if (optionsContainer) {
-        optionsContainer.addEventListener('click', (e) => {
-            const option = e.target.closest('.multiselect-option');
-            if (!option) return;
-            
-            const optionId = option.dataset.optionId;
-            const optionName = option.dataset.optionName;
-            
-            if (option.classList.contains('selected')) {
-                // Deselect
-                option.classList.remove('selected');
-                form.pages = form.pages.filter(p => p !== optionId);
-                form.pageTitles = form.pageTitles.filter(t => t !== optionName);
-            } else {
-                // Select
-                option.classList.add('selected');
-                form.pages.push(optionId);
-                form.pageTitles.push(optionName);
-            }
-            
-            updateMultiSelectDisplay(formId);
-        });
-    }
-    
-    // Clear button
-    if (clearBtn) {
-        clearBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            form.pages = [];
-            form.pageTitles = [];
-            
-            const options = optionsContainer.querySelectorAll('.multiselect-option');
-            options.forEach(opt => opt.classList.remove('selected'));
-            
-            updateMultiSelectDisplay(formId);
-        });
-    }
 }
 
-// Update Multi-Select Display
-function updateMultiSelectDisplay(formId) {
+// Render Multi-Select Tags
+function renderMultiSelectTags(formId) {
     const form = forms.find(f => f.id === formId);
-    if (!form) return;
-    
     const tagsContainer = document.querySelector(`[data-multiselect-tags="${formId}"]`);
-    const clearBtn = document.querySelector(`[data-multiselect-clear="${formId}"]`);
     const placeholder = document.querySelector(`[data-multiselect-display="${formId}"] .multiselect-placeholder`);
+    const clearBtn = document.querySelector(`[data-multiselect-clear="${formId}"]`);
     
-    if (!tagsContainer || !placeholder) return;
-    
-    if (form.pageTitles.length === 0) {
+    if (form.pages.length === 0) {
         tagsContainer.innerHTML = '';
         placeholder.style.display = 'block';
-        if (clearBtn) clearBtn.style.display = 'none';
-    } else {
-        placeholder.style.display = 'none';
-        if (clearBtn) clearBtn.style.display = 'flex';
+        clearBtn.style.display = 'none';
+        return;
+    }
+    
+    placeholder.style.display = 'none';
+    clearBtn.style.display = 'flex';
+    
+    tagsContainer.innerHTML = form.pages.map((pageId, index) => {
+        const pageName = form.pageTitles[index] || 'Unknown';
         
-        tagsContainer.innerHTML = form.pageTitles.map((title, index) => `
+        return `
             <div class="multiselect-tag">
-                <span class="multiselect-tag-text">${title}</span>
-                <button type="button" class="multiselect-tag-remove" onclick="removeTag(${formId}, ${index})">
+                <span>${pageName}</span>
+                <button type="button" class="multiselect-tag-remove" onclick="removeMultiSelectTag(${formId}, '${pageId}')">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 </button>
             </div>
-        `).join('');
-    }
+        `;
+    }).join('');
 }
 
-// Remove Tag
-function removeTag(formId, index) {
+// Remove Multi-Select Tag
+function removeMultiSelectTag(formId, pageId) {
     const form = forms.find(f => f.id === formId);
-    if (!form) return;
+    const index = form.pages.indexOf(pageId);
     
-    const pageId = form.pages[index];
+    if (index > -1) {
+        form.pages.splice(index, 1);
+        form.pageTitles.splice(index, 1);
+    }
     
-    // Remove from arrays
-    form.pages.splice(index, 1);
-    form.pageTitles.splice(index, 1);
-    
-    // Update option state
+    // Deselect the option
     const option = document.querySelector(`[data-multiselect-options="${formId}"] [data-option-id="${pageId}"]`);
     if (option) {
         option.classList.remove('selected');
     }
     
-    updateMultiSelectDisplay(formId);
+    renderMultiSelectTags(formId);
 }
 
 // Render Tabs
