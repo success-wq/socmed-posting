@@ -1132,6 +1132,8 @@ async function publishDraft(formId, draftId) {
             }
         }
         
+        payload.platforms = form.platforms || [];
+
         console.log('📤 Publishing draft:', payload);
         
         const response = await fetch(CONFIG.N8N_PUBLISH_WEBHOOK, {
@@ -1405,3 +1407,4 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
