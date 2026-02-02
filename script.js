@@ -826,9 +826,15 @@ function transformN8nResponse(n8nData, form) {
     }
     
     // Get title from webhook response only (no fallback to form.pageTitles array)
-    const title = n8nData.pageTitle || n8nData.title || 'Draft';
+    let title = n8nData.pageTitle || n8nData.title || 'Draft';
+    
+    // Handle if pageTitle comes as array
+    if (Array.isArray(title)) {
+        title = title[0] || 'Draft';
+    }
     
     const transformed = {
+        pageId: n8nData.pageId || null,
         title: title,
         text: text,
         image: image,
