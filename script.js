@@ -1,4 +1,6 @@
 // Configuration
+console.log('🚀 Script.js loaded - Version 2.0 - DEBUG MODE');
+
 const CONFIG = {
     N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
@@ -32,11 +34,21 @@ async function init() {
 // Load Spreadsheet Data
 async function loadSpreadsheetData() {
     try {
+        console.log('🔄 Fetching spreadsheet data from:', CONFIG.WEBAPP_URL);
         const response = await fetch(CONFIG.WEBAPP_URL);
         const data = await response.json();
         
+        console.log('📥 Raw response:', data);
+        console.log('📥 Raw response type:', typeof data);
+        console.log('📥 Is array?', Array.isArray(data));
+        
         if (data && data.length > 0) {
             spreadsheetData = data;
+            
+            console.log('📋 First row data:', data[0]);
+            console.log('📋 First row keys:', Object.keys(data[0]));
+            console.log('📋 pageTitle property:', data[0].pageTitle);
+            console.log('📋 area property:', data[0].area);
             
             // Set CONFIG values from first row
             const firstRow = data[0];
@@ -45,9 +57,13 @@ async function loadSpreadsheetData() {
             CONFIG.GHL_USER_ID = firstRow.ghlLocationId || ''; // Using locationId as userId fallback
             
             console.log('✅ Spreadsheet data loaded:', data.length, 'rows');
+            console.log('✅ CONFIG.GHL_LOCATION_ID:', CONFIG.GHL_LOCATION_ID);
+            console.log('✅ CONFIG.GHL_TOKEN:', CONFIG.GHL_TOKEN);
+        } else {
+            console.error('❌ No data returned from spreadsheet');
         }
     } catch (error) {
-        console.error('Error loading spreadsheet data:', error);
+        console.error('❌ Error loading spreadsheet data:', error);
         alert('Error loading spreadsheet data. Please check your webapp URL.');
     }
 }
@@ -60,6 +76,9 @@ async function loadAccounts() {
         name: row.pageTitle || '',
         platform: row.area || 'Page'  // Use area as platform label
     }));
+    
+    console.log('✅ Accounts array populated:', accounts.length, 'items');
+    console.log('📋 Accounts:', accounts);
 }
 
 // Setup Event Listeners
@@ -95,6 +114,9 @@ function createForm() {
 
 // Render Form
 function renderForm(form) {
+    console.log('🎨 Rendering form, accounts array:', accounts);
+    console.log('🎨 Accounts length:', accounts.length);
+    
     const formHTML = `
         <div class="form-item" data-form-id="${form.id}">
             <div class="form-header">
@@ -154,11 +176,16 @@ function renderForm(form) {
                                 >
                             </div>
                             <div class="multiselect-options" data-multiselect-options="${form.id}">
-                                ${accounts.map(acc => `
-                                    <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
-                                        ${acc.name} (${acc.platform})
-                                    </div>
-                                `).join('')}
+                                ${(() => {
+                                    const optionsHTML = accounts.map(acc => `
+                                        <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
+                                            ${acc.name} (${acc.platform})
+                                        </div>
+                                    `).join('');
+                                    console.log('🔧 Generated options HTML length:', optionsHTML.length);
+                                    console.log('🔧 Options HTML preview:', optionsHTML.substring(0, 200));
+                                    return optionsHTML;
+                                })()}
                             </div>
                         </div>
                     </div>
