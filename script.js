@@ -1,16 +1,18 @@
 // Configuration
 const CONFIG = {
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbx6O3c8JmVhn21GplhpCho6P2ploarzqbVRGzHNRu8sHj82tDzTOwsThpE5_4CULYCT/exec',
     N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
-    GHL_LOCATION_ID: 'WXQN7BcuGraEWbKThpHB',
-    GHL_TOKEN: 'pit-6f2acdd2-7183-497d-927b-c34cedef658c',
-    GHL_USER_ID: 'Jq6fypbCiDz2jmMSnjj3'
+    GHL_LOCATION_ID: '',
+    GHL_TOKEN: '',
+    GHL_USER_ID: ''
 };
 
 // State
 let forms = [];
 let currentFormIndex = 0;
 let accounts = [];
+let spreadsheetData = [];
 
 // DOM Elements
 const formsContainer = document.getElementById('formsContainer');
@@ -19,8 +21,37 @@ const addFormBtn = document.getElementById('addFormBtn');
 const submitAllBtn = document.getElementById('submitAllBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
+// Load Spreadsheet Data
+async function loadSpreadsheetData() {
+    try {
+        console.log('🔄 Fetching spreadsheet data from:', CONFIG.WEBAPP_URL);
+        const response = await fetch(CONFIG.WEBAPP_URL);
+        const data = await response.json();
+        
+        console.log('📥 Raw response:', data);
+        
+        if (data && data.length > 0) {
+            spreadsheetData = data;
+            
+            // Set CONFIG values from first row
+            const firstRow = data[0];
+            CONFIG.GHL_LOCATION_ID = firstRow.ghlLocationId || '';
+            CONFIG.GHL_TOKEN = firstRow.ghlApiKey || '';
+            CONFIG.GHL_USER_ID = firstRow.ghlLocationId || '';
+            
+            console.log('✅ Spreadsheet data loaded:', data.length, 'rows');
+        } else {
+            console.error('❌ No data returned from spreadsheet');
+        }
+    } catch (error) {
+        console.error('❌ Error loading spreadsheet data:', error);
+        alert('Error loading spreadsheet data. Please check your webapp URL.');
+    }
+}
+
 // Initialize
 async function init() {
+    await loadSpreadsheetData();
     await loadAccounts();
     createForm();
     setupEventListeners();
@@ -29,21 +60,21 @@ async function init() {
 // Load GHL Accounts
 async function loadAccounts() {
     try {
-        const response = await fetch(
-            `https://services.leadconnectorhq.com/social-media-posting/${CONFIG.GHL_LOCATION_ID}/accounts`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${CONFIG.GHL_TOKEN}`,
-                    'Version': '2021-07-28'
-                }
-            }
-        );
+        console.log('📋 Loading accounts from spreadsheet data...');
         
-        const data = await response.json();
-        accounts = data.results.accounts || [];
+        // Transform spreadsheet data to accounts array
+        accounts = spreadsheetData.map((row, index) => ({
+            id: `page-${index}`,
+            name: row.pageTitle || '',
+            platform: row.area || 'Page'
+        }));
+        
+        console.log('✅ Accounts array populated:', accounts.length, 'items');
+        console.log('📋 Accounts:', accounts);
+        
     } catch (error) {
-        console.error('Error loading accounts:', error);
-        alert('Error loading social media accounts');
+        console.error('❌ Error loading accounts:', error);
+        accounts = [];
     }
 }
 
@@ -833,8 +864,14 @@ function transformN8nResponse(n8nData, form) {
         title = title[0] || 'Draft';
     }
     
+    // Get pageId and handle if it comes as array
+    let pageId = n8nData.pageID || n8nData.pageId || null;
+    if (Array.isArray(pageId)) {
+        pageId = pageId[0] || null;
+    }
+    
     const transformed = {
-        pageId: n8nData.pageId || null,
+        pageId: pageId,
         title: title,
         text: text,
         image: image,
@@ -903,22 +940,22 @@ function renderDrafts(formId) {
     
     container.innerHTML = form.drafts.map(draft => `
         <div class="draft-item ${draft.editing ? 'editing' : ''}" data-draft-id="${draft.id}">
-            <div class="draft-header" onclick="toggleDraft(${formId}, ${draft.id})">
+            <div class="draft-header" onclick="toggleDraft(${formId}, '${draft.id}')">
                 <div class="draft-title">${escapeHtml(draft.title)}</div>
                 <div class="draft-actions">
-                    <button class="draft-action-btn publish-btn" onclick="event.stopPropagation(); publishDraft(${formId}, ${draft.id})">
+                    <button class="draft-action-btn publish-btn" onclick="event.stopPropagation(); publishDraft(${formId}, '${draft.id}')">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M8 1v14M3 8l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         Publish
                     </button>
-                    <button class="draft-action-btn edit-btn" onclick="event.stopPropagation(); toggleEditDraft(${formId}, ${draft.id})">
+                    <button class="draft-action-btn edit-btn" onclick="event.stopPropagation(); toggleEditDraft(${formId}, '${draft.id}')">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M11 1l4 4-9 9H2v-4l9-9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         ${draft.editing ? 'Cancel' : 'Edit'}
                     </button>
-                    <button class="draft-toggle-btn" onclick="event.stopPropagation(); toggleDraft(${formId}, ${draft.id})">
+                    <button class="draft-toggle-btn" onclick="event.stopPropagation(); toggleDraft(${formId}, '${draft.id}')">
                         ${draft.expanded ? 'Hide' : 'Show'}
                     </button>
                 </div>
@@ -954,18 +991,18 @@ function renderDrafts(formId) {
                             <!-- Video Option -->
                             <div class="edit-media-option">
                                 <label class="edit-checkbox-item">
-                                    <input type="checkbox" class="edit-checkbox-input" data-draft-field="videoEnabled" ${draft.editData.videoEnabled ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this)">
+                                    <input type="checkbox" class="edit-checkbox-input" data-draft-field="videoEnabled" ${draft.editData.videoEnabled ? 'checked' : ''} onchange="updateDraftEditData(${formId}, '${draft.id}', this)">
                                     <span class="edit-checkbox-label">Video</span>
                                 </label>
                                 
                                 <div class="edit-media-config" data-edit-media-config="video" style="display: ${draft.editData.videoEnabled ? 'block' : 'none'};">
                                     <div class="edit-media-type-selector">
                                         <label class="edit-radio-item">
-                                            <input type="radio" class="edit-radio-input" name="videoType-${formId}-${draft.id}" data-draft-field="videoType" value="prompt" ${draft.editData.videoType === 'prompt' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'video', 'prompt')">
+                                            <input type="radio" class="edit-radio-input" name="videoType-${formId}-${draft.id}" data-draft-field="videoType" value="prompt" ${draft.editData.videoType === 'prompt' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, '${draft.id}', this); toggleEditMediaInput(${formId}, '${draft.id}', 'video', 'prompt')">
                                             <span class="edit-radio-label">Prompt</span>
                                         </label>
                                         <label class="edit-radio-item">
-                                            <input type="radio" class="edit-radio-input" name="videoType-${formId}-${draft.id}" data-draft-field="videoType" value="upload" ${draft.editData.videoType === 'upload' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'video', 'upload')">
+                                            <input type="radio" class="edit-radio-input" name="videoType-${formId}-${draft.id}" data-draft-field="videoType" value="upload" ${draft.editData.videoType === 'upload' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, '${draft.id}', this); toggleEditMediaInput(${formId}, '${draft.id}', 'video', 'upload')">
                                             <span class="edit-radio-label">Upload</span>
                                         </label>
                                     </div>
@@ -977,7 +1014,7 @@ function renderDrafts(formId) {
                                             data-edit-prompt-type="video"
                                             placeholder="Describe the video you want generated..."
                                             style="display: ${draft.editData.videoType === 'prompt' ? 'block' : 'none'};"
-                                            oninput="updateDraftEditData(${formId}, ${draft.id}, this)"
+                                            oninput="updateDraftEditData(${formId}, '${draft.id}', this)"
                                         >${draft.editData.videoPrompt}</textarea>
                                         <div class="edit-upload-placeholder" data-edit-upload-placeholder="video" style="display: ${draft.editData.videoType === 'upload' ? 'flex' : 'none'};">
                                             <span>Upload coming soon...</span>
@@ -989,18 +1026,18 @@ function renderDrafts(formId) {
                             <!-- Image Option -->
                             <div class="edit-media-option">
                                 <label class="edit-checkbox-item">
-                                    <input type="checkbox" class="edit-checkbox-input" data-draft-field="imageEnabled" ${draft.editData.imageEnabled ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this)">
+                                    <input type="checkbox" class="edit-checkbox-input" data-draft-field="imageEnabled" ${draft.editData.imageEnabled ? 'checked' : ''} onchange="updateDraftEditData(${formId}, '${draft.id}', this)">
                                     <span class="edit-checkbox-label">Image</span>
                                 </label>
                                 
                                 <div class="edit-media-config" data-edit-media-config="image" style="display: ${draft.editData.imageEnabled ? 'block' : 'none'};">
                                     <div class="edit-media-type-selector">
                                         <label class="edit-radio-item">
-                                            <input type="radio" class="edit-radio-input" name="imageType-${formId}-${draft.id}" data-draft-field="imageType" value="prompt" ${draft.editData.imageType === 'prompt' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'image', 'prompt')">
+                                            <input type="radio" class="edit-radio-input" name="imageType-${formId}-${draft.id}" data-draft-field="imageType" value="prompt" ${draft.editData.imageType === 'prompt' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, '${draft.id}', this); toggleEditMediaInput(${formId}, '${draft.id}', 'image', 'prompt')">
                                             <span class="edit-radio-label">Prompt</span>
                                         </label>
                                         <label class="edit-radio-item">
-                                            <input type="radio" class="edit-radio-input" name="imageType-${formId}-${draft.id}" data-draft-field="imageType" value="upload" ${draft.editData.imageType === 'upload' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, ${draft.id}, this); toggleEditMediaInput(${formId}, ${draft.id}, 'image', 'upload')">
+                                            <input type="radio" class="edit-radio-input" name="imageType-${formId}-${draft.id}" data-draft-field="imageType" value="upload" ${draft.editData.imageType === 'upload' ? 'checked' : ''} onchange="updateDraftEditData(${formId}, '${draft.id}', this); toggleEditMediaInput(${formId}, '${draft.id}', 'image', 'upload')">
                                             <span class="edit-radio-label">Upload</span>
                                         </label>
                                     </div>
@@ -1012,7 +1049,7 @@ function renderDrafts(formId) {
                                             data-edit-prompt-type="image"
                                             placeholder="Describe the image you want generated..."
                                             style="display: ${draft.editData.imageType === 'prompt' ? 'block' : 'none'};"
-                                            oninput="updateDraftEditData(${formId}, ${draft.id}, this)"
+                                            oninput="updateDraftEditData(${formId}, '${draft.id}', this)"
                                         >${draft.editData.imagePrompt}</textarea>
                                         <div class="edit-upload-placeholder" data-edit-upload-placeholder="image" style="display: ${draft.editData.imageType === 'upload' ? 'flex' : 'none'};">
                                             <span>Upload coming soon...</span>
@@ -1032,11 +1069,11 @@ function renderDrafts(formId) {
                                     data-draft-field="postPrompt" 
                                     placeholder="Describe what you want to post..."
                                     required
-                                    oninput="updateDraftEditData(${formId}, ${draft.id}, this)"
+                                    oninput="updateDraftEditData(${formId}, '${draft.id}', this)"
                                 >${draft.editData.postPrompt}</textarea>
                             </div>
 
-                            <button class="save-edit-btn" onclick="saveDraftEdit(${formId}, ${draft.id})">
+                            <button class="save-edit-btn" onclick="saveDraftEdit(${formId}, '${draft.id}')">
                                 Save Changes
                             </button>
                         </div>
