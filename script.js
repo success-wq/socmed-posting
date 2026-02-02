@@ -657,35 +657,105 @@ function deleteForm(formId) {
 }
 
 // Transform n8n Response
-function transformN8nResponse(item, form) {
-    console.log('🔄 Transforming response item:', item);
+// Transform n8n Response
+function transformN8nResponse(n8nData, form) {
+    console.log('🔄 Transforming n8n response:', n8nData);
     
-    return {
-        id: Date.now() + Math.random(),
-        pageTitle: item.pageTitle || 'Unknown Page',
-        text: item.postText || item.text || '',
-        image: item.imageUrl || item.image || null,
-        video: item.videoUrl || item.video || null,
-        platforms: form.platforms || [],
-        editing: false,
-        editData: {
-            postPrompt: form.postPrompt || '',
-            videoEnabled: form.videoEnabled || false,
-            videoType: form.videoType || 'prompt',
-            videoPrompt: form.videoPrompt || '',
-            imageEnabled: form.imageEnabled || false,
-            imageType: form.imageType || 'prompt',
-            imagePrompt: form.imagePrompt || ''
+    // Handle array response
+    if (Array.isArray(n8nData) && n8nData.length > 0) {
+        n8nData = n8nData[0];
+    }
+    
+    // Extract text from content array or single content string
+    let text = '';
+    if (n8nData.content && Array.isArray(n8nData.content)) {
+        text = n8nData.content.join('\n\n');
+    } else if (n8nData.content && typeof n8nData.content === 'string') {
+        text = n8nData.content;
+    } else if (n8nData.text) {
+        text = n8nData.text;
+    }
+    
+    // Extract video URL from video array
+    let video = null;
+    if (n8nData.video && Array.isArray(n8nData.video) && n8nData.video.length > 0) {
+        video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0];
+    } else if (n8nData.video && typeof n8nData.video === 'string') {
+        video = n8nData.video;
+    }
+    
+    // Extract image URL from image array
+    let image = null;
+    if (n8nData.image && Array.isArray(n8nData.image) && n8nData.image.length > 0) {
+        const imageData = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0];
+        // If it's raw base64 (no data: prefix), convert to data URL
+        if (imageData && !imageData.startsWith('http') && !imageData.startsWith('data:')) {
+            image = `data:image/png;base64,${imageData}`;
+        } else {
+            image = imageData;
         }
+    } else if (n8nData.image && typeof n8nData.image === 'string') {
+        // If it's raw base64 (no data: prefix), convert to data URL
+        if (!n8nData.image.startsWith('http') && !n8nData.image.startsWith('data:')) {
+            image = `data:image/png;base64,${n8nData.image}`;
+        } else {
+            image = n8nData.image;
+        }
+    }
+    
+    // Get title from webhook response only (no fallback to form.pageTitles array)
+    let title = n8nData.pageTitle || n8nData.title || 'Draft';
+    
+    // Handle if pageTitle comes as array
+    if (Array.isArray(title)) {
+        title = title[0] || 'Draft';
+    }
+    
+    const transformed = {
+        pageId: n8nData.pageID || n8nData.pageId || null,  // Use pageID from n8n
+        title: title,
+        text: text,
+        image: image,
+        video: video
     };
+    
+    console.log('✅ Transformed result:', transformed);
+    return transformed;
 }
 
 // Add Draft
+// Add Draft
 function addDraft(formId, draftData) {
+    console.log('📝 addDraft called with:', { formId, draftData });
     const form = forms.find(f => f.id === formId);
-    if (!form) return;
     
-    form.drafts.push(draftData);
+    if (!form) {
+        console.error('❌ Form not found:', formId);
+        return;
+    }
+    
+    const draft = {
+        id: draftData.pageId || Date.now() + Math.random(), // Use pageId if available
+        title: draftData.title || draftData.pageTitle || 'Draft',
+        text: draftData.text || '',
+        image: draftData.image || null,
+        video: draftData.video || null,
+        expanded: false,
+        editing: false,
+        editData: {
+            videoEnabled: false,
+            videoType: 'prompt',
+            videoPrompt: '',
+            imageEnabled: false,
+            imageType: 'prompt',
+            imagePrompt: '',
+            postPrompt: draftData.text || ''
+        }
+    };
+    
+    console.log('📝 Draft object created:', draft);
+    form.drafts.push(draft);
+    console.log('📝 Total drafts for form:', form.drafts.length);
     renderDrafts(formId);
 }
 
@@ -722,19 +792,19 @@ function renderDraftViewMode(formId, draft) {
     return `
         <div class="draft-item" data-draft-id="${draft.id}">
             <div class="draft-header">
-                <h4 class="draft-title">${escapeHtml(draft.pageTitle)}</h4>
+                <h4 class="draft-title">${escapeHtml(draft.title)}</h4>
                 <div class="draft-actions">
-                    <button class="draft-action-btn" onclick="editDraft(${formId}, ${draft.id})" title="Edit">
+                    <button class="draft-action-btn" onclick="editDraft(${formId}, '${draft.id}')" title="Edit">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M11.5 2.5l2 2L6 12H4v-2l7.5-7.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
-                    <button class="draft-action-btn" onclick="publishDraft(${formId}, ${draft.id})" title="Publish">
+                    <button class="draft-action-btn" onclick="publishDraft(${formId}, '${draft.id}')" title="Publish">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M8 2v12m4-4l-4 4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
-                    <button class="draft-action-btn draft-action-delete" onclick="deleteDraft(${formId}, ${draft.id})" title="Delete">
+                    <button class="draft-action-btn draft-action-delete" onclick="deleteDraft(${formId}, '${draft.id}')" title="Delete">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
@@ -760,7 +830,7 @@ function renderDraftViewMode(formId, draft) {
             
             <div class="draft-meta">
                 <div class="draft-platforms">
-                    ${draft.platforms.map(p => `<span class="draft-platform-tag">${p}</span>`).join('')}
+                    ${draft.platforms ? draft.platforms.map(p => `<span class="draft-platform-tag">${p}</span>`).join('') : ''}
                 </div>
             </div>
         </div>
@@ -772,7 +842,7 @@ function renderDraftEditMode(formId, draft) {
     return `
         <div class="draft-item draft-editing" data-draft-id="${draft.id}">
             <div class="draft-header">
-                <h4 class="draft-title">${escapeHtml(draft.pageTitle)} - Editing</h4>
+                <h4 class="draft-title">${escapeHtml(draft.title)} - Editing</h4>
                 <div class="draft-actions">
                     <button class="draft-action-btn draft-action-save" onclick="saveDraftEdit(${formId}, ${draft.id})" title="Save & Regenerate">
                         Save
@@ -1036,27 +1106,26 @@ async function publishDraft(formId, draftId) {
     
     if (!draft) return;
     
-    if (!confirm(`Publish draft for "${draft.pageTitle}" to ${draft.platforms.join(', ')}?`)) return;
+    // Get platforms from form since draft doesn't store them
+    const platforms = form.platforms || [];
+    
+    if (!confirm(`Publish draft for "${draft.title}"?`)) return;
     
     showLoading(true);
     
     try {
-        // Extract just the pageTitle (remove area suffix if present)
-        // "Dallas Windows and Doors (Dallas)" -> "Dallas Windows and Doors"
-        const cleanPageTitle = draft.pageTitle.replace(/\s*\([^)]*\)\s*$/, '').trim();
-        
-        // Find matching spreadsheet row by pageTitle
+        // Find matching spreadsheet row by title
         const spreadsheetRow = spreadsheetData.find(row => 
-            row.pageTitle === cleanPageTitle || row.pageTitle === draft.pageTitle
+            row.pageTitle === draft.title
         ) || {};
         
         // Build payload with draft data + spreadsheet data
         const payload = {
-            pageTitle: cleanPageTitle,  // Use clean pageTitle
+            pageTitle: draft.title,
             text: draft.text,
             image: draft.image,
             video: draft.video,
-            platforms: draft.platforms,
+            platforms: platforms,
             locationId: CONFIG.GHL_LOCATION_ID,
             userId: CONFIG.GHL_USER_ID,
             ghlApiKey: CONFIG.GHL_TOKEN,
