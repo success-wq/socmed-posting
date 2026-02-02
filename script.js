@@ -766,34 +766,6 @@ async function saveForm(formId) {
             resultsArray.forEach(draftData => {
                 const transformedResult = transformN8nResponse(draftData, form);
                 addDraft(formId, transformedResult);
-
-                //added inside the loop to handle http request post - v202602.01
-
-                const payload = {
-                    pageTitle: transformedResult.title,
-                    content: transformedResult.text
-                };
-                
-                // only attach if present
-                if (transformedResult.image) {
-                    payload.image = transformedResult.image;
-                }
-                
-                if (transformedResult.video) {
-                    payload.video = transformedResult.video;
-                }
-                
-                // POST to your script.js receiver
-                await fetch('/script.js', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                //end of newly added snipped
-
-                
             });
         } else {
             console.warn('⚠️ No result received from n8n');
@@ -1372,47 +1344,5 @@ function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
 }
 
-// ==============================
-// Load drafts from n8n (GET)
-// ==============================
-async function loadDrafts() {
-    try {
-        const res = await fetch(
-            'https://bsmteam.app.n8n.cloud/webhook/socmed-feed'
-        );
-
-        if (!res.ok) {
-            throw new Error('Failed to load drafts');
-        }
-
-        const drafts = await res.json();
-
-        // Expecting an array of:
-        // { pageTitle, content, image?, video? }
-        drafts.forEach(draft => {
-            const transformed = {
-                title: draft.pageTitle,
-                text: draft.content,
-                image: draft.image || null,
-                video: draft.video || null
-            };
-
-            // Add drafts to FIRST form by default
-            if (forms.length > 0) {
-                addDraft(forms[0].id, transformed);
-            }
-        });
-
-    } catch (err) {
-        console.error('Error loading drafts:', err);
-    }
-}
-
-
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', async () => {
-    await init();       // existing UI setup
-    await loadDrafts(); // fetch drafts from n8n
-});
-
-
+document.addEventListener('DOMContentLoaded', init);
