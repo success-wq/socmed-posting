@@ -1326,9 +1326,35 @@ async function submitAllForms() {
     
     try {
         // Prepare clean forms without drafts using original structure
+// Prepare clean forms without drafts and add spreadsheet data
         const cleanForms = validForms.map(form => {
             const { drafts, ...formData } = form;
-            return formData;
+            
+            // Add spreadsheet data arrays matching each page
+            const spreadsheetArrays = {
+                areas: [],
+                metaPageIds: [],
+                ghlLocationIds: [],
+                ghlApiKeys: []
+            };
+            
+            // For each page in the form, find matching spreadsheet row
+            form.pageTitles.forEach((pageTitle, index) => {
+                const spreadsheetRow = spreadsheetData.find(row => 
+                    row.pageTitle === pageTitle
+                ) || {};
+                
+                // Add data to arrays (in same order as pages/pageTitles)
+                spreadsheetArrays.areas.push(spreadsheetRow.area || '');
+                spreadsheetArrays.metaPageIds.push(spreadsheetRow.metaPageId || '');
+                spreadsheetArrays.ghlLocationIds.push(spreadsheetRow.ghlLocationId || '');
+                spreadsheetArrays.ghlApiKeys.push(spreadsheetRow.ghlApiKey || '');
+            });
+            
+            return {
+                ...formData,
+                ...spreadsheetArrays
+            };
         });
         
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
@@ -1407,4 +1433,5 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
