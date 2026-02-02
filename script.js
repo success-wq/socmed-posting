@@ -24,6 +24,7 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 // Initialize
 async function init() {
     await loadSpreadsheetData();
+    await loadAccounts();
     createForm();
     setupEventListeners();
 }
@@ -53,23 +54,12 @@ async function loadSpreadsheetData() {
 
 // Load GHL Accounts
 async function loadAccounts() {
-    try {
-        const response = await fetch(
-            `https://services.leadconnectorhq.com/social-media-posting/${CONFIG.GHL_LOCATION_ID}/accounts`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${CONFIG.GHL_TOKEN}`,
-                    'Version': '2021-07-28'
-                }
-            }
-        );
-        
-        const data = await response.json();
-        accounts = data.results.accounts || [];
-    } catch (error) {
-        console.error('Error loading accounts:', error);
-        alert('Error loading social media accounts');
-    }
+    // Transform spreadsheet data into accounts format for dropdown compatibility
+    accounts = spreadsheetData.map((row, index) => ({
+        id: `page-${index}`,
+        name: row.pageTitle || '',
+        platform: row.area || 'Page'  // Use area as platform label
+    }));
 }
 
 // Setup Event Listeners
@@ -164,9 +154,9 @@ function renderForm(form) {
                                 >
                             </div>
                             <div class="multiselect-options" data-multiselect-options="${form.id}">
-                                ${spreadsheetData.map((row, index) => `
-                                    <div class="multiselect-option" data-option-id="${index}" data-option-name="${row.pageTitle}">
-                                        ${row.pageTitle}
+                                ${accounts.map(acc => `
+                                    <div class="multiselect-option" data-option-id="${acc.id}" data-option-name="${acc.name} (${acc.platform})">
+                                        ${acc.name} (${acc.platform})
                                     </div>
                                 `).join('')}
                             </div>
@@ -978,14 +968,18 @@ async function publishDraft(formId, draftId) {
     showLoading(true);
     
     try {
+        // Extract just the pageTitle (remove area suffix if present)
+        // "Dallas Windows and Doors (Dallas)" -> "Dallas Windows and Doors"
+        const cleanPageTitle = draft.pageTitle.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        
         // Find matching spreadsheet row by pageTitle
         const spreadsheetRow = spreadsheetData.find(row => 
-            row.pageTitle === draft.pageTitle
+            row.pageTitle === cleanPageTitle || row.pageTitle === draft.pageTitle
         ) || {};
         
         // Build payload with draft data + spreadsheet data
         const payload = {
-            pageTitle: draft.pageTitle,
+            pageTitle: cleanPageTitle,  // Use clean pageTitle
             text: draft.text,
             image: draft.image,
             video: draft.video,
