@@ -670,10 +670,13 @@ function transformN8nResponse(n8nData, form) {
     let text = '';
     if (n8nData.content && Array.isArray(n8nData.content)) {
         text = n8nData.content.join('\n\n');
+        console.log('  📝 Content (from array):', text.substring(0, 50) + '...');
     } else if (n8nData.content && typeof n8nData.content === 'string') {
         text = n8nData.content;
+        console.log('  📝 Content (string):', text.substring(0, 50) + '...');
     } else if (n8nData.text) {
         text = n8nData.text;
+        console.log('  📝 Content (from text):', text.substring(0, 50) + '...');
     }
     
     // Extract video URL from video array
@@ -708,11 +711,21 @@ function transformN8nResponse(n8nData, form) {
     
     // Handle if pageTitle comes as array
     if (Array.isArray(title)) {
+        console.log('  📋 PageTitle (array):', title);
         title = title[0] || 'Draft';
     }
+    console.log('  📋 Title (final):', title);
+    
+    // Get pageId and handle if it comes as array
+    let pageId = n8nData.pageID || n8nData.pageId || null;
+    if (Array.isArray(pageId)) {
+        console.log('  🆔 PageID (array):', pageId);
+        pageId = pageId[0] || null;
+    }
+    console.log('  🆔 PageID (final):', pageId, typeof pageId);
     
     const transformed = {
-        pageId: n8nData.pageID || n8nData.pageId || null,  // Use pageID from n8n
+        pageId: pageId,
         title: title,
         text: text,
         image: image,
