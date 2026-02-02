@@ -857,10 +857,10 @@ function renderDraftEditMode(formId, draft) {
             <div class="draft-header">
                 <h4 class="draft-title">${escapeHtml(draft.title)} - Editing</h4>
                 <div class="draft-actions">
-                    <button class="draft-action-btn draft-action-save" onclick="saveDraftEdit(${formId}, ${draft.id})" title="Save & Regenerate">
+                    <button class="draft-action-btn draft-action-save" onclick="saveDraftEdit(${formId}, '${draft.id}')" title="Save & Regenerate">
                         Save
                     </button>
-                    <button class="draft-action-btn" onclick="cancelDraftEdit(${formId}, ${draft.id})" title="Cancel">
+                    <button class="draft-action-btn" onclick="cancelDraftEdit(${formId}, '${draft.id}')" title="Cancel">
                         Cancel
                     </button>
                 </div>
