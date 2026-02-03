@@ -821,76 +821,43 @@ function transformN8nResponse(n8nData, form) {
         n8nData = n8nData[0];
     }
     
-    // Extract text from content array or various text fields
+    // Extract text from content array
     let text = '';
     if (n8nData.content && Array.isArray(n8nData.content)) {
         text = n8nData.content.join('\n\n');
     } else if (n8nData.text) {
         text = n8nData.text;
-    } else if (n8nData.postText) {
-        text = n8nData.postText;
-    } else if (n8nData.post) {
-        text = n8nData.post;
     }
     
-    // FIXED: Extract video URL from video field with multiple format support
+    // Extract video URL from video array
     let video = null;
     if (n8nData.video && Array.isArray(n8nData.video) && n8nData.video.length > 0) {
-        video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0].videoUrl || n8nData.video[0];
-    } else if (n8nData.video && typeof n8nData.video === 'object' && !Array.isArray(n8nData.video)) {
-        // Handle video as object
-        video = n8nData.video.uri || n8nData.video.url || n8nData.video.videoUrl || n8nData.video.video_url;
+        video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0];
     } else if (n8nData.video && typeof n8nData.video === 'string') {
         video = n8nData.video;
-    } else if (n8nData.videoUrl) {
-        video = n8nData.videoUrl;
-    } else if (n8nData.video_url) {
-        video = n8nData.video_url;
-    } else if (n8nData.generatedVideoUrl) {
-        video = n8nData.generatedVideoUrl;
-    } else if (n8nData.generated_video_url) {
-        video = n8nData.generated_video_url;
     }
     
-    // FIXED: Extract image URL from image field with multiple format support
+    // Extract image URL from image array
     let image = null;
     if (n8nData.image && Array.isArray(n8nData.image) && n8nData.image.length > 0) {
-        const imageData = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0].imageUrl || n8nData.image[0];
-        if (imageData && typeof imageData === 'string') {
-            if (!imageData.startsWith('http') && !imageData.startsWith('data:')) {
-                image = `data:image/png;base64,${imageData}`;
-            } else {
-                image = imageData;
-            }
-        }
-    } else if (n8nData.image && typeof n8nData.image === 'object' && !Array.isArray(n8nData.image)) {
-        // Handle image as object (this fixes bulk text+image errors)
-        const imageData = n8nData.image.uri || n8nData.image.url || n8nData.image.imageUrl || n8nData.image.image_url;
-        if (imageData && typeof imageData === 'string') {
-            if (!imageData.startsWith('http') && !imageData.startsWith('data:')) {
-                image = `data:image/png;base64,${imageData}`;
-            } else {
-                image = imageData;
-            }
+        const imageData = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0];
+        // If it's raw base64 (no data: prefix), convert to data URL
+        if (imageData && !imageData.startsWith('http') && !imageData.startsWith('data:')) {
+            image = `data:image/png;base64,${imageData}`;
+        } else {
+            image = imageData;
         }
     } else if (n8nData.image && typeof n8nData.image === 'string') {
+        // If it's raw base64 (no data: prefix), convert to data URL
         if (!n8nData.image.startsWith('http') && !n8nData.image.startsWith('data:')) {
             image = `data:image/png;base64,${n8nData.image}`;
         } else {
             image = n8nData.image;
         }
-    } else if (n8nData.imageUrl) {
-        image = n8nData.imageUrl;
-    } else if (n8nData.image_url) {
-        image = n8nData.image_url;
-    } else if (n8nData.generatedImageUrl) {
-        image = n8nData.generatedImageUrl;
-    } else if (n8nData.generated_image_url) {
-        image = n8nData.generated_image_url;
     }
     
     // Get title from webhook response only (no fallback to form.pageTitles array)
-    let title = n8nData.pageTitle || n8nData.title || n8nData.page_title || n8nData.page || 'Draft';
+    let title = n8nData.pageTitle || n8nData.title || 'Draft';
     
     // Handle if pageTitle comes as array
     if (Array.isArray(title)) {
@@ -898,7 +865,7 @@ function transformN8nResponse(n8nData, form) {
     }
     
     // Get pageId and handle if it comes as array
-    let pageId = n8nData.pageID || n8nData.pageId || n8nData.page_id || null;
+    let pageId = n8nData.pageID || n8nData.pageId || null;
     if (Array.isArray(pageId)) {
         pageId = pageId[0] || null;
     }
@@ -1254,7 +1221,6 @@ function toggleEditMediaInput(formId, draftId, mediaType, inputType) {
     }
 }
 
-
 // Save Draft Edit
 async function saveDraftEdit(formId, draftId) {
     const form = forms.find(f => f.id === formId);
@@ -1273,11 +1239,6 @@ async function saveDraftEdit(formId, draftId) {
     showLoading(true);
     
     try {
-        // FIXED: Find the spreadsheet row for this specific draft's page
-        const spreadsheetRow = spreadsheetData.find(row => 
-            row.pageTitle === draft.title
-        ) || {};
-        
         // Prepare payload with forms array structure for n8n
         // Send ONLY this specific draft's data, not all forms
         const payload = {
@@ -1293,12 +1254,7 @@ async function saveDraftEdit(formId, draftId) {
                 videoPrompt: draft.editData.videoPrompt,
                 imageEnabled: draft.editData.imageEnabled,
                 imageType: draft.editData.imageType,
-                imagePrompt: draft.editData.imagePrompt,
-                // FIXED: Include spreadsheet data arrays (required by n8n)
-                areas: [spreadsheetRow.area || ''],
-                metaPageIds: [spreadsheetRow.metaPageId || ''],
-                ghlLocationIds: [spreadsheetRow.ghlLocationId || ''],
-                ghlApiKeys: [spreadsheetRow.ghlApiKey || '']
+                imagePrompt: draft.editData.imagePrompt
             }],
             userId: CONFIG.GHL_USER_ID,
             locationId: CONFIG.GHL_LOCATION_ID
@@ -1490,3 +1446,9 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
+
+
+
+
+
