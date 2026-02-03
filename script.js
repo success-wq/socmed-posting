@@ -893,7 +893,8 @@ function addDraft(formId, draftData) {
     }
     
     const draft = {
-        id: draftData.pageId || Date.now() + Math.random(), // Use pageId if available
+        id: `${draftData.pageId}_${Date.now()}`,
+        pageId: draftData.pageId,  // Add this line too
         title: draftData.title || draftData.pageTitle || 'Draft',
         text: draftData.text || '',
         image: draftData.image || null,
@@ -1244,7 +1245,7 @@ async function saveDraftEdit(formId, draftId) {
             forms: [{
                 id: form.id,
                 pageMode: 'select',
-                pages: [draft.id],           // Only this draft's page ID
+                pages: [draft.pageId],  // Only this draft's page ID (use pageId, not id)
                 pageTitles: [draft.title],    // Only this draft's title
                 platforms: form.platforms,    // Platforms from form
                 postPrompt: draft.editData.postPrompt,
@@ -1357,8 +1358,18 @@ async function submitAllForms() {
             };
         });
         
+            // Calculate dynamic timeout based on number of items
+            const itemCount = cleanForms.reduce((total, form) => total + (form.pages?.length || 1), 0);
+            const timeoutMs = 30000 + (itemCount * 45000);
+            console.log(`⏱️ Timeout set for ${itemCount} items: ${timeoutMs/1000}s`);
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
             method: 'POST',
+            signal: controller.signal,  // ← ADD THIS LINE (after line 1370)
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -1368,6 +1379,8 @@ async function submitAllForms() {
                 locationId: CONFIG.GHL_LOCATION_ID
             })
         });
+
+        clearTimeout(timeoutId);  // ← ADD THIS LINE
         
         if (!response.ok) {
             throw new Error('Submission failed');
@@ -1433,5 +1446,6 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
 
