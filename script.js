@@ -1122,8 +1122,8 @@ async function publishDraft(formId, draftId) {
         }
         
         // Add hidden fields from spreadsheet row
-        if (draft.id && draft.id.toString().startsWith('page-')) {
-            const pageIndex = parseInt(draft.id.replace('page-', ''));
+        if (draft.pageId && draft.pageId.toString().startsWith('page-')) {
+            const pageIndex = parseInt(draft.pageId.replace('page-', ''));
             const rowData = spreadsheetData[pageIndex];
             if (rowData) {
                 payload.area = rowData.area || '';
@@ -1446,6 +1446,7 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
