@@ -1096,13 +1096,11 @@ function renderDrafts(formId) {
                             <div class="edit-form-section">
                                 <label class="edit-section-label">
                                     Post Prompt
-                                    <span class="required-indicator">*</span>
                                 </label>
                                 <textarea 
                                     class="edit-form-textarea" 
                                     data-draft-field="postPrompt" 
                                     placeholder="Describe what you want to post..."
-                                    required
                                     oninput="updateDraftEditData(${formId}, '${draft.id}', this)"
                                 >${draft.editData.postPrompt}</textarea>
                             </div>
@@ -1261,13 +1259,14 @@ async function saveDraftEdit(formId, draftId) {
     const draft = form.drafts.find(d => d.id === draftId);
     
     if (!draft) return;
-    
+    /**
     // Validate post prompt is required
     if (!draft.editData.postPrompt || draft.editData.postPrompt.trim() === '') {
         alert('Post prompt is required');
         return;
     }
-    
+    //deleted this part since post prompt will not be required in EDIT DRAFT
+    **/
     if (!confirm('Regenerate draft with new settings?')) return;
     
     showLoading(true);
@@ -1490,6 +1489,7 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
