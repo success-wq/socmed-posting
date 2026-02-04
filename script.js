@@ -1403,7 +1403,7 @@ async function submitAllForms() {
         
             // Calculate dynamic timeout based on number of items
             const itemCount = cleanForms.reduce((total, form) => total + (form.pages?.length || 1), 0);
-            const timeoutMs = 30000 + (itemCount * 1500000);
+            const timeoutMs = 30000 + (itemCount * 150000);
             console.log(`⏱️ Timeout set for ${itemCount} items: ${timeoutMs/1000}s`);
             
             const controller = new AbortController();
@@ -1489,6 +1489,7 @@ function showLoading(show) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
