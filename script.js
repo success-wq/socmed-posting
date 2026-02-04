@@ -1500,7 +1500,26 @@ function showLoading(show) {
 async function pollForResults(jobId, formIndex) {
     console.log('🔄 Starting to poll for job:', jobId);
     
-    const maxAttempts = 80; // 80 × 5 seconds = ~7 minutes max
+    // Show loading message
+    const form = forms[formIndex];
+    const container = document.querySelector(`[data-drafts-container="${form.id}"]`);
+    if (container) {
+        container.innerHTML = `
+            <div class="loading-drafts">
+                <div class="loading-spinner">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="16" stroke="currentColor" stroke-width="3" opacity="0.3"/>
+                        <path d="M20 4a16 16 0 0 1 16 16" stroke="#4A9EFF" stroke-width="3" stroke-linecap="round">
+                            <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
+                        </path>
+                    </svg>
+                </div>
+                <p>Loading Drafts. Please Wait...</p>
+            </div>
+        `;
+    }
+    
+    const maxAttempts = 80;
     let attempts = 0;
     
     const pollInterval = setInterval(async () => {
@@ -1534,7 +1553,6 @@ async function pollForResults(jobId, formIndex) {
         }
     }, 5000);
 }
-
 // Process results from polling
 function processPollingResults(results, formIndex) {
     console.log('📥 Processing polling results:', results);
@@ -1561,6 +1579,7 @@ function processPollingResults(results, formIndex) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
