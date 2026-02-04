@@ -1080,3 +1080,31 @@ body {
         max-height: none;
     }
 }
+
+
+
+
+
+
+.loading-drafts {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+}
+
+.loading-drafts .loading-spinner {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-drafts p {
+    font-size: 16px;
+    margin: 0;
+    font-weight: 500;
+}
+
+.loading-spinner svg {
+    color: #4A9EFF;
+}
