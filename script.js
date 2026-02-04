@@ -1,6 +1,6 @@
 // Configuration
 const CONFIG = {
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbx6O3c8JmVhn21GplhpCho6P2ploarzqbVRGzHNRu8sHj82tDzTOwsThpE5_4CULYCT/exec',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwsPqtiXoC6vNF6BNYQPGqhbazL_tvn5KD07GIOuyZtzhmqPAeL1JTk7IztpPyh5b6h/exec',
     N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
     GHL_LOCATION_ID: '',
@@ -1561,6 +1561,7 @@ function processPollingResults(results, formIndex) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+
 
 
 
