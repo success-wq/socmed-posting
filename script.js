@@ -1,7 +1,8 @@
 // Configuration
 const CONFIG = {
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwr4QDnIPd2LMiogdi5tWqYSUPZbmJWCpkWo6uekJVt7eT_Ljj-o63gtw1GhCFTSng4/exec',
-    N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwsPqtiXoC6vNF6BNYQPGqhbazL_tvn5KD07GIOuyZtzhmqPAeL1JTk7IztpPyh5b6h/exec',
+    N8N_TEXT_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/3b3d73f0-e739-420c-bd72-e30f590726a4',
+    N8N_IMAGE_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/7af9b7d7-aa02-42e4-8c71-32e9a298c749',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
     GHL_LOCATION_ID: '',
     GHL_TOKEN: '',
@@ -741,7 +742,7 @@ function deleteForm(formId) {
     switchToForm(currentFormIndex);
 }
 
-// Save Form (Send to n8n)
+// Save Form (Send to n8n) - TEXT ONLY
 async function saveForm(formId) {
     const form = forms.find(f => f.id === formId);
     
@@ -764,11 +765,11 @@ async function saveForm(formId) {
     showLoading(true);
     
     try {
-        // Prepare clean payload without drafts
-        const { drafts, ...formData } = form;
+        // Prepare payload without image/video settings (text only)
+        const { drafts, imageEnabled, imageType, imagePrompt, videoEnabled, videoType, videoPrompt, ...formData } = form;
         
-        // Send to n8n webhook using original structure
-        const response = await fetch(CONFIG.N8N_WEBHOOK, {
+        // Send to TEXT webhook
+        const response = await fetch(CONFIG.N8N_TEXT_WEBHOOK, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -785,21 +786,18 @@ async function saveForm(formId) {
         }
         
         const result = await response.json();
-        console.log('📥 Received from n8n:', result);
+        console.log('📥 Received TEXT from n8n:', result);
         
-        // Transform and add drafts to form
+        // Transform and add text drafts
         if (result) {
-            // Handle array response (one per pageTitle)
             let resultsArray = Array.isArray(result) ? result : [result];
             
-            console.log(`✅ Adding ${resultsArray.length} draft(s) to form ${formId}`);
+            console.log(`✅ Adding ${resultsArray.length} text draft(s) to form ${formId}`);
             
             resultsArray.forEach(draftData => {
-                const transformedResult = transformN8nResponse(draftData, form);
-                addDraft(formId, transformedResult);
+                const transformedResult = transformN8nTextResponse(draftData, form);
+                addDraft(formId, transformedResult, form.imageEnabled);
             });
-        } else {
-            console.warn('⚠️ No result received from n8n');
         }
         
         alert('Form sent to n8n successfully!');
@@ -812,9 +810,9 @@ async function saveForm(formId) {
     }
 }
 
-// Transform n8n Response to UI Format
-function transformN8nResponse(n8nData, form) {
-    console.log('🔄 Transforming n8n response:', n8nData);
+// Transform n8n TEXT Response to UI Format
+function transformN8nTextResponse(n8nData, form) {
+    console.log('🔄 Transforming n8n TEXT response:', n8nData);
     
     // Handle array response
     if (Array.isArray(n8nData) && n8nData.length > 0) {
@@ -833,26 +831,106 @@ function transformN8nResponse(n8nData, form) {
         text = n8nData.post;
     }
     
-    // FIXED: Extract video URL from video field with multiple format support
-    let video = null;
-    if (n8nData.video && Array.isArray(n8nData.video) && n8nData.video.length > 0) {
-        video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0].videoUrl || n8nData.video[0];
-    } else if (n8nData.video && typeof n8nData.video === 'object' && !Array.isArray(n8nData.video)) {
-        // Handle video as object
-        video = n8nData.video.uri || n8nData.video.url || n8nData.video.videoUrl || n8nData.video.video_url;
-    } else if (n8nData.video && typeof n8nData.video === 'string') {
-        video = n8nData.video;
-    } else if (n8nData.videoUrl) {
-        video = n8nData.videoUrl;
-    } else if (n8nData.video_url) {
-        video = n8nData.video_url;
-    } else if (n8nData.generatedVideoUrl) {
-        video = n8nData.generatedVideoUrl;
-    } else if (n8nData.generated_video_url) {
-        video = n8nData.generated_video_url;
+    // Get title from webhook response
+    let title = n8nData.pageTitle || n8nData.title || n8nData.page_title || n8nData.page || 'Draft';
+    if (Array.isArray(title)) {
+        title = title[0] || 'Draft';
     }
     
-    // FIXED: Extract image URL from image field with multiple format support
+    // Get pageId
+    let pageId = n8nData.pageID || n8nData.pageId || n8nData.page_id || null;
+    if (Array.isArray(pageId)) {
+        pageId = pageId[0] || null;
+    }
+    
+    const transformed = {
+        pageId: pageId,
+        title: title,
+        text: text,
+        image: null,  // No image yet
+        video: null
+    };
+    
+    console.log('✅ Transformed TEXT result:', transformed);
+    return transformed;
+}
+
+// Generate Image for Draft
+async function generateDraftImage(formId, draftId) {
+    const form = forms.find(f => f.id === formId);
+    const draft = form.drafts.find(d => d.id === draftId);
+    
+    if (!draft) {
+        console.error('❌ Draft not found:', draftId);
+        return;
+    }
+    
+    console.log('🖼️ Generating image for draft:', draftId, draft.title);
+    
+    // Find spreadsheet row for this draft
+    const spreadsheetRow = spreadsheetData.find(row => 
+        row.pageTitle === draft.title
+    ) || {};
+    
+    try {
+        const payload = {
+            pageID: draft.pageId,
+            pageTitle: draft.title,
+            imagePrompt: form.imagePrompt || draft.text,  // Use form's imagePrompt if provided, else use generated text
+            platform: form.platforms[0] || 'facebook',
+            // Include spreadsheet data
+            area: spreadsheetRow.area || '',
+            metaPageId: spreadsheetRow.metaPageId || '',
+            ghlLocationId: spreadsheetRow.ghlLocationId || '',
+            ghlApiKey: spreadsheetRow.ghlApiKey || ''
+        };
+        
+        console.log('📤 Sending image request:', payload);
+        
+        const response = await fetch(CONFIG.N8N_IMAGE_WEBHOOK, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Image generation failed');
+        }
+        
+        const result = await response.json();
+        console.log('📥 Received IMAGE from n8n:', result);
+        
+        // Transform and update draft
+        const transformedImage = transformN8nImageResponse(result);
+        
+        // Find draft by pageID (most reliable identifier)
+        const targetDraft = form.drafts.find(d => d.pageId === transformedImage.pageId);
+        
+        if (targetDraft) {
+            targetDraft.image = transformedImage.image;
+            console.log('✅ Updated draft with image:', targetDraft.id);
+            renderDrafts(formId);
+        } else {
+            console.error('❌ Could not find draft with pageID:', transformedImage.pageId);
+        }
+        
+    } catch (error) {
+        console.error('Error generating image for draft:', error);
+    }
+}
+
+// Transform n8n IMAGE Response
+function transformN8nImageResponse(n8nData) {
+    console.log('🔄 Transforming n8n IMAGE response:', n8nData);
+    
+    // Handle array response
+    if (Array.isArray(n8nData) && n8nData.length > 0) {
+        n8nData = n8nData[0];
+    }
+    
+    // Extract image URL
     let image = null;
     if (n8nData.image && Array.isArray(n8nData.image) && n8nData.image.length > 0) {
         const imageData = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0].imageUrl || n8nData.image[0];
@@ -864,7 +942,6 @@ function transformN8nResponse(n8nData, form) {
             }
         }
     } else if (n8nData.image && typeof n8nData.image === 'object' && !Array.isArray(n8nData.image)) {
-        // Handle image as object (this fixes bulk text+image errors)
         const imageData = n8nData.image.uri || n8nData.image.url || n8nData.image.imageUrl || n8nData.image.image_url;
         if (imageData && typeof imageData === 'string') {
             if (!imageData.startsWith('http') && !imageData.startsWith('data:')) {
@@ -883,21 +960,11 @@ function transformN8nResponse(n8nData, form) {
         image = n8nData.imageUrl;
     } else if (n8nData.image_url) {
         image = n8nData.image_url;
-    } else if (n8nData.generatedImageUrl) {
-        image = n8nData.generatedImageUrl;
-    } else if (n8nData.generated_image_url) {
-        image = n8nData.generated_image_url;
+    } else if (n8nData.url) {
+        image = n8nData.url;
     }
     
-    // Get title from webhook response only (no fallback to form.pageTitles array)
-    let title = n8nData.pageTitle || n8nData.title || n8nData.page_title || n8nData.page || 'Draft';
-    
-    // Handle if pageTitle comes as array
-    if (Array.isArray(title)) {
-        title = title[0] || 'Draft';
-    }
-    
-    // Get pageId and handle if it comes as array
+    // Get pageId
     let pageId = n8nData.pageID || n8nData.pageId || n8nData.page_id || null;
     if (Array.isArray(pageId)) {
         pageId = pageId[0] || null;
@@ -905,19 +972,16 @@ function transformN8nResponse(n8nData, form) {
     
     const transformed = {
         pageId: pageId,
-        title: title,
-        text: text,
-        image: image,
-        video: video
+        image: image
     };
     
-    console.log('✅ Transformed result:', transformed);
+    console.log('✅ Transformed IMAGE result:', transformed);
     return transformed;
 }
 
 // Add Draft
-function addDraft(formId, draftData) {
-    console.log('📝 addDraft called with:', { formId, draftData });
+function addDraft(formId, draftData, shouldGenerateImage = false) {
+    console.log('📝 addDraft called with:', { formId, draftData, shouldGenerateImage });
     const form = forms.find(f => f.id === formId);
     
     if (!form) {
@@ -927,7 +991,7 @@ function addDraft(formId, draftData) {
     
     const draft = {
         id: `${draftData.pageId}_${Date.now()}`,
-        pageId: draftData.pageId,  // Add this line too
+        pageId: draftData.pageId,
         title: draftData.title || draftData.pageTitle || 'Draft',
         text: draftData.text || '',
         image: draftData.image || null,
@@ -949,6 +1013,12 @@ function addDraft(formId, draftData) {
     form.drafts.push(draft);
     console.log('📝 Total drafts for form:', form.drafts.length);
     renderDrafts(formId);
+    
+    // Generate image in background if enabled
+    if (shouldGenerateImage) {
+        console.log('🖼️ Triggering image generation for draft:', draft.id);
+        generateDraftImage(formId, draft.id);
+    }
 }
 
 // Render Drafts
@@ -1016,6 +1086,7 @@ function renderDrafts(formId) {
                                     ` : ''}
                                 </div>
                             ` : ''}
+                            ${!draft.image && form.imageEnabled ? '<div class="draft-loading">🖼️ Generating image...</div>' : ''}
                         </div>
                     </div>
                     ${draft.editing ? `
@@ -1252,48 +1323,31 @@ function toggleEditMediaInput(formId, draftId, mediaType, inputType) {
     }
 }
 
-
-// Save Draft Edit
+// Save Draft Edit - REGENERATE WITH TEXT WEBHOOK
 async function saveDraftEdit(formId, draftId) {
     const form = forms.find(f => f.id === formId);
     const draft = form.drafts.find(d => d.id === draftId);
     
     if (!draft) return;
-    /**
-    // Validate post prompt is required
-    if (!draft.editData.postPrompt || draft.editData.postPrompt.trim() === '') {
-        alert('Post prompt is required');
-        return;
-    }
-    //deleted this part since post prompt will not be required in EDIT DRAFT
-    **/
+    
     if (!confirm('Regenerate draft with new settings?')) return;
     
     showLoading(true);
     
     try {
-        // FIXED: Find the spreadsheet row for this specific draft's page
         const spreadsheetRow = spreadsheetData.find(row => 
             row.pageTitle === draft.title
         ) || {};
         
-        // Prepare payload with forms array structure for n8n
-        // Send ONLY this specific draft's data, not all forms
+        // Send to TEXT webhook for regeneration
         const payload = {
             forms: [{
                 id: form.id,
                 pageMode: 'select',
-                pages: [draft.pageId],  // Only this draft's page ID (use pageId, not id)
-                pageTitles: [draft.title],    // Only this draft's title
-                platforms: form.platforms,    // Platforms from form
+                pages: [draft.pageId],
+                pageTitles: [draft.title],
+                platforms: form.platforms,
                 postPrompt: draft.editData.postPrompt,
-                videoEnabled: draft.editData.videoEnabled,
-                videoType: draft.editData.videoType,
-                videoPrompt: draft.editData.videoPrompt,
-                imageEnabled: draft.editData.imageEnabled,
-                imageType: draft.editData.imageType,
-                imagePrompt: draft.editData.imagePrompt,
-                // FIXED: Include spreadsheet data arrays (required by n8n)
                 areas: [spreadsheetRow.area || ''],
                 metaPageIds: [spreadsheetRow.metaPageId || ''],
                 ghlLocationIds: [spreadsheetRow.ghlLocationId || ''],
@@ -1303,9 +1357,9 @@ async function saveDraftEdit(formId, draftId) {
             locationId: CONFIG.GHL_LOCATION_ID
         };
         
-        console.log('📤 Regenerating draft:', payload);
+        console.log('📤 Regenerating draft (text):', payload);
         
-        const response = await fetch(CONFIG.N8N_WEBHOOK, {
+        const response = await fetch(CONFIG.N8N_TEXT_WEBHOOK, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1318,21 +1372,23 @@ async function saveDraftEdit(formId, draftId) {
         }
         
         const result = await response.json();
-        console.log('📥 Received from n8n:', result);
+        console.log('📥 Received regenerated text from n8n:', result);
         
-        // Transform and update the existing draft
+        // Update draft with new text
         if (result) {
-            const transformedResult = transformN8nResponse(result, form);
-            
-            // Update draft with new content
+            const transformedResult = transformN8nTextResponse(result, form);
             draft.text = transformedResult.text;
-            draft.image = transformedResult.image;
-            draft.video = transformedResult.video;
-            
-            // Exit edit mode
             draft.editing = false;
             
-            renderDrafts(formId);
+            // If image was enabled in edit, regenerate image
+            if (draft.editData.imageEnabled) {
+                draft.image = null;  // Clear old image
+                renderDrafts(formId);
+                generateDraftImage(formId, draft.id);
+            } else {
+                renderDrafts(formId);
+            }
+            
             alert('Draft regenerated successfully!');
         }
         
@@ -1351,7 +1407,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Submit All Forms
+// Submit All Forms - TEXT ONLY
 async function submitAllForms() {
     // Validate all forms
     const validForms = forms.filter(f => {
@@ -1369,10 +1425,9 @@ async function submitAllForms() {
     showLoading(true);
     
     try {
-        // Prepare clean forms without drafts using original structure
-// Prepare clean forms without drafts and add spreadsheet data
+        // Prepare clean forms - TEXT ONLY (remove image/video settings)
         const cleanForms = validForms.map(form => {
-            const { drafts, ...formData } = form;
+            const { drafts, imageEnabled, imageType, imagePrompt, videoEnabled, videoType, videoPrompt, ...formData } = form;
             
             // Add spreadsheet data arrays matching each page
             const spreadsheetArrays = {
@@ -1382,13 +1437,11 @@ async function submitAllForms() {
                 ghlApiKeys: []
             };
             
-            // For each page in the form, find matching spreadsheet row
             form.pageTitles.forEach((pageTitle, index) => {
                 const spreadsheetRow = spreadsheetData.find(row => 
                     row.pageTitle === pageTitle
                 ) || {};
                 
-                // Add data to arrays (in same order as pages/pageTitles)
                 spreadsheetArrays.areas.push(spreadsheetRow.area || '');
                 spreadsheetArrays.metaPageIds.push(spreadsheetRow.metaPageId || '');
                 spreadsheetArrays.ghlLocationIds.push(spreadsheetRow.ghlLocationId || '');
@@ -1401,18 +1454,9 @@ async function submitAllForms() {
             };
         });
         
-            // Calculate dynamic timeout based on number of items
-            const itemCount = cleanForms.reduce((total, form) => total + (form.pages?.length || 1), 0);
-            const timeoutMs = 30000 + (itemCount * 150000);
-            console.log(`⏱️ Timeout set for ${itemCount} items: ${timeoutMs/1000}s`);
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-        
-        const response = await fetch(CONFIG.N8N_WEBHOOK, {
+        // Send to TEXT webhook
+        const response = await fetch(CONFIG.N8N_TEXT_WEBHOOK, {
             method: 'POST',
-            signal: controller.signal,  // ← ADD THIS LINE (after line 1370)
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -1422,57 +1466,33 @@ async function submitAllForms() {
                 locationId: CONFIG.GHL_LOCATION_ID
             })
         });
-
-        clearTimeout(timeoutId);  // ← ADD THIS LINE
         
         if (!response.ok) {
             throw new Error('Submission failed');
         }
         
         const result = await response.json();
-        console.log('📥 Received from n8n (bulk):', result);
+        console.log('📥 Received TEXT from n8n (bulk):', result);
         
-        // Process results and add drafts
+        // Process text results and add drafts
         if (result) {
-            // Handle different response formats
-            let resultsArray = [];
+            let resultsArray = Array.isArray(result) ? result : [result];
             
-            if (Array.isArray(result)) {
-                // If response is an array, use it directly
-                resultsArray = result;
-            } else if (result.results && Array.isArray(result.results)) {
-                // If response has a results property with an array
-                resultsArray = result.results;
-            } else {
-                // Single result, wrap in array
-                resultsArray = [result];
-            }
+            console.log(`📦 Processing ${resultsArray.length} text result(s)`);
             
-            console.log(`📦 Processing ${resultsArray.length} result(s)`);
-            
-            // Check if results are grouped by form or flat (single form)
-            if (resultsArray.length > 0 && resultsArray[0].formIndex !== undefined) {
-                // Results have formIndex, group by form
-                resultsArray.forEach(item => {
-                    const formIndex = item.formIndex;
-                    if (validForms[formIndex]) {
-                        const transformedResult = transformN8nResponse(item, validForms[formIndex]);
-                        addDraft(validForms[formIndex].id, transformedResult);
-                    }
+            // Determine which form each result belongs to
+            if (validForms.length > 0) {
+                const targetForm = validForms[0];
+                const shouldGenerateImages = targetForm.imageEnabled;
+                
+                resultsArray.forEach(draftData => {
+                    const transformedResult = transformN8nTextResponse(draftData, targetForm);
+                    addDraft(targetForm.id, transformedResult, shouldGenerateImages);
                 });
-            } else {
-                // Flat results, assume single form with multiple pageTitles
-                if (validForms.length > 0) {
-                    const targetForm = validForms[0];
-                    resultsArray.forEach(draftData => {
-                        const transformedResult = transformN8nResponse(draftData, targetForm);
-                        addDraft(targetForm.id, transformedResult);
-                    });
-                }
             }
         }
         
-        alert('All forms submitted successfully!');
+        alert('All forms submitted successfully! Images will generate in background.');
         
     } catch (error) {
         console.error('Error submitting forms:', error);
