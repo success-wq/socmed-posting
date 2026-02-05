@@ -1,6 +1,6 @@
 // Configuration
 const CONFIG = {
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwsPqtiXoC6vNF6BNYQPGqhbazL_tvn5KD07GIOuyZtzhmqPAeL1JTk7IztpPyh5b6h/exec',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwr4QDnIPd2LMiogdi5tWqYSUPZbmJWCpkWo6uekJVt7eT_Ljj-o63gtw1GhCFTSng4/exec',
     N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
     GHL_LOCATION_ID: '',
@@ -1432,15 +1432,6 @@ async function submitAllForms() {
         const result = await response.json();
         console.log('📥 Received from n8n (bulk):', result);
         
-        // NEW: Check if this is a polling response (async processing)
-        if (result.status === 'processing' && result.jobId) {
-            console.log('⏳ Job queued for async processing:', result.jobId);
-            showLoading(false);
-            alert('✅ Processing started! Drafts with images will appear automatically in a few minutes.');
-            pollForResults(result.jobId, 0);
-            return; // Exit early, polling will handle the rest
-        }
-        
         // Process results and add drafts
         if (result) {
             // Handle different response formats
@@ -1496,97 +1487,5 @@ function showLoading(show) {
     loadingOverlay.style.display = show ? 'flex' : 'none';
 }
 
-// Poll for job results
-async function pollForResults(jobId, formIndex) {
-    console.log('🔄 Starting to poll for job:', jobId);
-    
-    // Show loading message
-    const form = forms[formIndex];
-    const container = document.querySelector(`[data-drafts-container="${form.id}"]`);
-    if (container) {
-        container.innerHTML = `
-            <div class="loading-drafts">
-                <div class="loading-spinner">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                        <circle cx="20" cy="20" r="16" stroke="currentColor" stroke-width="3" opacity="0.3"/>
-                        <path d="M20 4a16 16 0 0 1 16 16" stroke="#4A9EFF" stroke-width="3" stroke-linecap="round">
-                            <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="1s" repeatCount="indefinite"/>
-                        </path>
-                    </svg>
-                </div>
-                <p>Loading Drafts. Please Wait...</p>
-            </div>
-        `;
-    }
-    
-    const maxAttempts = 80;
-    let attempts = 0;
-    
-    const pollInterval = setInterval(async () => {
-        attempts++;
-        console.log(`⏳ Polling attempt ${attempts}/${maxAttempts} for job ${jobId}...`);
-        
-        try {
-            const response = await fetch(`${CONFIG.WEBAPP_URL}?action=checkJob&jobId=${jobId}`);
-            const data = await response.json();
-            
-            if (data.status === 'complete') {
-                clearInterval(pollInterval);
-                console.log('✅ Job complete! Processing results...');
-                
-                showLoading(false);
-                processPollingResults(data.results, formIndex);
-            } else if (data.error) {
-                clearInterval(pollInterval);
-                console.error('❌ Error from polling:', data.error);
-                showLoading(false);
-                alert('Error checking job status: ' + data.error);
-            }
-        } catch (error) {
-            console.log('⏳ Still processing...');
-        }
-        
-        if (attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            showLoading(false);
-            alert('Processing is taking longer than expected. Please refresh in a few minutes.');
-        }
-    }, 5000);
-}
-// Process results from polling
-function processPollingResults(results, formIndex) {
-    console.log('📥 Processing polling results:', results);
-    
-    if (!Array.isArray(results) || results.length === 0) {
-        alert('No results received');
-        return;
-    }
-    
-    const form = forms[formIndex];
-    if (!form) {
-        console.error('❌ Form not found at index:', formIndex);
-        return;
-    }
-    
-    results.forEach(item => {
-        console.log('🔄 Transforming result:', item);
-        const transformed = transformN8nResponse(item, form);
-        addDraft(form.id, transformed);
-    });
-    
-    console.log('✅ All drafts from polling added!');
-}
-
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
-
-
-
-
-
-
-
-
-
-
-
