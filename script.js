@@ -19,6 +19,7 @@ const formsContainer = document.getElementById('formsContainer');
 const formTabs = document.getElementById('formTabs');
 const addFormBtn = document.getElementById('addFormBtn');
 const submitAllBtn = document.getElementById('submitAllBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
 // Load Spreadsheet Data
@@ -82,6 +83,7 @@ async function loadAccounts() {
 function setupEventListeners() {
     addFormBtn.addEventListener('click', createForm);
     submitAllBtn.addEventListener('click', submitAllForms);
+    clearAllBtn.addEventListener('click', clearAllForms);
 }
 
 // Create Form
@@ -691,6 +693,18 @@ function clearForm(formId) {
     // Clear drafts
     form.drafts = [];
     renderDrafts(formId);
+}
+
+// Clear All Forms
+function clearAllForms() {
+    if (!confirm('Clear all forms? This will reset all form data and drafts.')) return;
+    
+    // Clear each form
+    forms.forEach(form => {
+        clearForm(form.id);
+    });
+    
+    console.log('✅ All forms cleared');
 }
 
 // Delete Form
