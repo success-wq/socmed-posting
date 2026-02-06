@@ -739,6 +739,74 @@ body {
     background-color: #000000;
 }
 
+/* Media Link Buttons */
+.draft-media-links {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.draft-media-link-item {
+    display: flex;
+}
+
+.media-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+}
+
+.media-link-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.media-link-btn:active {
+    transform: translateY(0);
+}
+
+.media-link-btn.image-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.media-link-btn.video-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.media-link-btn svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.media-link-btn.image-btn:hover {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
+.media-link-btn.video-btn:hover {
+    box-shadow: 0 4px 12px rgba(245, 87, 108, 0.5);
+}
+
+.draft-loading {
+    padding: 12px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 14px;
+    color: #a0a0a0;
+    margin-top: 12px;
+}
+
 .empty-drafts {
     text-align: center;
     padding: 40px;
@@ -748,8 +816,42 @@ body {
 
 /* Submit Section */
 .submit-section {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
     margin-top: 40px;
+}
+
+.clear-all-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background-color: transparent;
+    color: #ff4444;
+    border: 1px solid #ff4444;
+    border-radius: 8px;
+    padding: 16px 48px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.clear-all-btn:hover {
+    background-color: #ff4444;
+    color: #000000;
+    transform: translateY(-2px);
+}
+
+.clear-all-btn:disabled {
+    background-color: #404040;
+    color: #606060;
+    border-color: #404040;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .submit-all-btn {
