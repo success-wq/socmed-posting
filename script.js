@@ -311,34 +311,6 @@ function renderForm(form) {
                     <div class="empty-drafts">No drafts generated yet</div>
                 </div>
             </div>
-
-            <!-- Form Actions -->
-            <div class="form-actions">
-                <button class="form-btn btn-previous" onclick="previousForm()" ${currentFormIndex === 0 ? 'disabled' : ''}>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M12 5l-5 5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Previous
-                </button>
-                <button class="form-btn btn-clear" onclick="clearForm(${form.id})">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M5 5l10 10M15 5l-10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                    Clear
-                </button>
-                <button class="form-btn btn-send" onclick="saveForm(${form.id})">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M18 10l-8-8-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Send to n8n
-                </button>
-                <button class="form-btn btn-next" onclick="nextForm()">
-                    Next
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
         </div>
     `;
     
