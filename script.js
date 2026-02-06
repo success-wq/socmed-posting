@@ -1,6 +1,6 @@
 // Configuration
 const CONFIG = {
-    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwr4QDnIPd2LMiogdi5tWqYSUPZbmJWCpkWo6uekJVt7eT_Ljj-o63gtw1GhCFTSng4/exec',
+    WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbwsPqtiXoC6vNF6BNYQPGqhbazL_tvn5KD07GIOuyZtzhmqPAeL1JTk7IztpPyh5b6h/exec',
     N8N_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/65ce59cc-e7f3-497b-9a11-068d578caff6',
     N8N_PUBLISH_WEBHOOK: 'https://bsmteam.app.n8n.cloud/webhook/2a8b5dcf-f1b8-4683-b73a-f2e9f7adc498',
     GHL_LOCATION_ID: '',
@@ -741,7 +741,7 @@ function deleteForm(formId) {
     switchToForm(currentFormIndex);
 }
 
-// Save Form (Send to n8n)
+// Save Form (Send to n8n) - SINGLE WEBHOOK WITH ALL DATA
 async function saveForm(formId) {
     const form = forms.find(f => f.id === formId);
     
@@ -764,10 +764,20 @@ async function saveForm(formId) {
     showLoading(true);
     
     try {
-        // Prepare clean payload without drafts
+        // Prepare payload with ALL form data including image/video settings
         const { drafts, ...formData } = form;
         
-        // Send to n8n webhook using original structure
+        // Calculate dynamic timeout based on item count
+        const itemCount = form.pages.length || 1;
+        const timeoutMs = 30000 + (itemCount * 150000); // 30s base + 150s per item
+        
+        console.log(`⏱️ Setting timeout to ${timeoutMs}ms for ${itemCount} item(s)`);
+        
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        
+        // Send to n8n webhook with all data
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
             method: 'POST',
             headers: {
@@ -777,8 +787,11 @@ async function saveForm(formId) {
                 ...formData,
                 userId: CONFIG.GHL_USER_ID,
                 locationId: CONFIG.GHL_LOCATION_ID
-            })
+            }),
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
             throw new Error('Submission failed');
@@ -787,9 +800,8 @@ async function saveForm(formId) {
         const result = await response.json();
         console.log('📥 Received from n8n:', result);
         
-        // Transform and add drafts to form
+        // Transform and add drafts
         if (result) {
-            // Handle array response (one per pageTitle)
             let resultsArray = Array.isArray(result) ? result : [result];
             
             console.log(`✅ Adding ${resultsArray.length} draft(s) to form ${formId}`);
@@ -798,15 +810,18 @@ async function saveForm(formId) {
                 const transformedResult = transformN8nResponse(draftData, form);
                 addDraft(formId, transformedResult);
             });
-        } else {
-            console.warn('⚠️ No result received from n8n');
         }
         
         alert('Form sent to n8n successfully!');
         
     } catch (error) {
-        console.error('Error sending form:', error);
-        alert('Error sending form. Please try again.');
+        if (error.name === 'AbortError') {
+            console.error('❌ Request timed out');
+            alert('Request timed out. The process may still be running in n8n. Please check back in a few minutes.');
+        } else {
+            console.error('Error sending form:', error);
+            alert('Error sending form. Please try again.');
+        }
     } finally {
         showLoading(false);
     }
@@ -833,71 +848,37 @@ function transformN8nResponse(n8nData, form) {
         text = n8nData.post;
     }
     
-    // FIXED: Extract video URL from video field with multiple format support
-    let video = null;
-    if (n8nData.video && Array.isArray(n8nData.video) && n8nData.video.length > 0) {
-        video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0].videoUrl || n8nData.video[0];
-    } else if (n8nData.video && typeof n8nData.video === 'object' && !Array.isArray(n8nData.video)) {
-        // Handle video as object
-        video = n8nData.video.uri || n8nData.video.url || n8nData.video.videoUrl || n8nData.video.video_url;
-    } else if (n8nData.video && typeof n8nData.video === 'string') {
-        video = n8nData.video;
-    } else if (n8nData.videoUrl) {
-        video = n8nData.videoUrl;
-    } else if (n8nData.video_url) {
-        video = n8nData.video_url;
-    } else if (n8nData.generatedVideoUrl) {
-        video = n8nData.generatedVideoUrl;
-    } else if (n8nData.generated_video_url) {
-        video = n8nData.generated_video_url;
-    }
-    
-    // FIXED: Extract image URL from image field with multiple format support
+    // Extract image
     let image = null;
-    if (n8nData.image && Array.isArray(n8nData.image) && n8nData.image.length > 0) {
-        const imageData = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0].imageUrl || n8nData.image[0];
-        if (imageData && typeof imageData === 'string') {
-            if (!imageData.startsWith('http') && !imageData.startsWith('data:')) {
-                image = `data:image/png;base64,${imageData}`;
-            } else {
-                image = imageData;
-            }
-        }
-    } else if (n8nData.image && typeof n8nData.image === 'object' && !Array.isArray(n8nData.image)) {
-        // Handle image as object (this fixes bulk text+image errors)
-        const imageData = n8nData.image.uri || n8nData.image.url || n8nData.image.imageUrl || n8nData.image.image_url;
-        if (imageData && typeof imageData === 'string') {
-            if (!imageData.startsWith('http') && !imageData.startsWith('data:')) {
-                image = `data:image/png;base64,${imageData}`;
-            } else {
-                image = imageData;
-            }
-        }
-    } else if (n8nData.image && typeof n8nData.image === 'string') {
-        if (!n8nData.image.startsWith('http') && !n8nData.image.startsWith('data:')) {
-            image = `data:image/png;base64,${n8nData.image}`;
-        } else {
+    if (n8nData.image) {
+        if (Array.isArray(n8nData.image) && n8nData.image.length > 0) {
+            image = n8nData.image[0].uri || n8nData.image[0].url || n8nData.image[0];
+        } else if (typeof n8nData.image === 'string') {
             image = n8nData.image;
         }
     } else if (n8nData.imageUrl) {
         image = n8nData.imageUrl;
-    } else if (n8nData.image_url) {
-        image = n8nData.image_url;
-    } else if (n8nData.generatedImageUrl) {
-        image = n8nData.generatedImageUrl;
-    } else if (n8nData.generated_image_url) {
-        image = n8nData.generated_image_url;
     }
     
-    // Get title from webhook response only (no fallback to form.pageTitles array)
-    let title = n8nData.pageTitle || n8nData.title || n8nData.page_title || n8nData.page || 'Draft';
+    // Extract video
+    let video = null;
+    if (n8nData.video) {
+        if (Array.isArray(n8nData.video) && n8nData.video.length > 0) {
+            video = n8nData.video[0].uri || n8nData.video[0].url || n8nData.video[0];
+        } else if (typeof n8nData.video === 'string') {
+            video = n8nData.video;
+        }
+    } else if (n8nData.videoUrl) {
+        video = n8nData.videoUrl;
+    }
     
-    // Handle if pageTitle comes as array
+    // Get title from webhook response
+    let title = n8nData.pageTitle || n8nData.title || n8nData.page_title || n8nData.page || 'Draft';
     if (Array.isArray(title)) {
         title = title[0] || 'Draft';
     }
     
-    // Get pageId and handle if it comes as array
+    // Get pageId
     let pageId = n8nData.pageID || n8nData.pageId || n8nData.page_id || null;
     if (Array.isArray(pageId)) {
         pageId = pageId[0] || null;
@@ -927,7 +908,7 @@ function addDraft(formId, draftData) {
     
     const draft = {
         id: `${draftData.pageId}_${Date.now()}`,
-        pageId: draftData.pageId,  // Add this line too
+        pageId: draftData.pageId,
         title: draftData.title || draftData.pageTitle || 'Draft',
         text: draftData.text || '',
         image: draftData.image || null,
@@ -951,7 +932,7 @@ function addDraft(formId, draftData) {
     renderDrafts(formId);
 }
 
-// Render Drafts
+// Render Drafts - ONLY CHANGE: Media rendered as link buttons instead of inline
 function renderDrafts(formId) {
     console.log('🎨 renderDrafts called for form:', formId);
     const form = forms.find(f => f.id === formId);
@@ -1000,18 +981,28 @@ function renderDrafts(formId) {
                         <div class="draft-content-inner">
                             ${draft.text ? `<div class="draft-text">${escapeHtml(draft.text)}</div>` : ''}
                             ${(draft.image || draft.video) ? `
-                                <div class="draft-media">
+                                <div class="draft-media-links">
                                     ${draft.image ? `
-                                        <div class="draft-media-item">
-                                            <img src="${draft.image}" alt="Generated image" />
+                                        <div class="draft-media-link-item">
+                                            <a href="${draft.image}" target="_blank" rel="noopener noreferrer" class="media-link-btn image-btn">
+                                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                                    <path d="M17 3H3C1.89543 3 1 3.89543 1 5V15C1 16.1046 1.89543 17 3 17H17C18.1046 17 19 16.1046 19 15V5C19 3.89543 18.1046 3 17 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M1 13L6 8L9 11L14 6L19 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <circle cx="5.5" cy="6.5" r="1.5" fill="currentColor"/>
+                                                </svg>
+                                                View Image
+                                            </a>
                                         </div>
                                     ` : ''}
                                     ${draft.video ? `
-                                        <div class="draft-media-item">
-                                            <video controls>
-                                                <source src="${draft.video}" type="video/mp4">
-                                                Your browser does not support the video tag.
-                                            </video>
+                                        <div class="draft-media-link-item">
+                                            <a href="${draft.video}" target="_blank" rel="noopener noreferrer" class="media-link-btn video-btn">
+                                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                                    <path d="M17 3H3C1.89543 3 1 3.89543 1 5V15C1 16.1046 1.89543 17 3 17H17C18.1046 17 19 16.1046 19 15V5C19 3.89543 18.1046 3 17 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M8 6L14 10L8 14V6Z" fill="currentColor"/>
+                                                </svg>
+                                                View Video
+                                            </a>
                                         </div>
                                     ` : ''}
                                 </div>
@@ -1252,65 +1243,54 @@ function toggleEditMediaInput(formId, draftId, mediaType, inputType) {
     }
 }
 
-
-// Save Draft Edit
+// Save Draft Edit - REGENERATE with same webhook
 async function saveDraftEdit(formId, draftId) {
     const form = forms.find(f => f.id === formId);
     const draft = form.drafts.find(d => d.id === draftId);
     
     if (!draft) return;
-    /**
-    // Validate post prompt is required
-    if (!draft.editData.postPrompt || draft.editData.postPrompt.trim() === '') {
-        alert('Post prompt is required');
-        return;
-    }
-    //deleted this part since post prompt will not be required in EDIT DRAFT
-    **/
+    
     if (!confirm('Regenerate draft with new settings?')) return;
     
     showLoading(true);
     
     try {
-        // FIXED: Find the spreadsheet row for this specific draft's page
         const spreadsheetRow = spreadsheetData.find(row => 
             row.pageTitle === draft.title
         ) || {};
         
-        // Prepare payload with forms array structure for n8n
-        // Send ONLY this specific draft's data, not all forms
-        const payload = {
-            forms: [{
-                id: form.id,
-                pageMode: 'select',
-                pages: [draft.pageId],  // Only this draft's page ID (use pageId, not id)
-                pageTitles: [draft.title],    // Only this draft's title
-                platforms: form.platforms,    // Platforms from form
-                postPrompt: draft.editData.postPrompt,
-                videoEnabled: draft.editData.videoEnabled,
-                videoType: draft.editData.videoType,
-                videoPrompt: draft.editData.videoPrompt,
-                imageEnabled: draft.editData.imageEnabled,
-                imageType: draft.editData.imageType,
-                imagePrompt: draft.editData.imagePrompt,
-                // FIXED: Include spreadsheet data arrays (required by n8n)
-                areas: [spreadsheetRow.area || ''],
-                metaPageIds: [spreadsheetRow.metaPageId || ''],
-                ghlLocationIds: [spreadsheetRow.ghlLocationId || ''],
-                ghlApiKeys: [spreadsheetRow.ghlApiKey || '']
-            }],
-            userId: CONFIG.GHL_USER_ID,
-            locationId: CONFIG.GHL_LOCATION_ID
+        // Create temporary form data for regeneration
+        const regenerateFormData = {
+            id: form.id,
+            pageMode: 'select',
+            pages: [draft.pageId],
+            pageTitles: [draft.title],
+            platforms: form.platforms,
+            postPrompt: draft.editData.postPrompt,
+            videoEnabled: draft.editData.videoEnabled,
+            videoType: draft.editData.videoType,
+            videoPrompt: draft.editData.videoPrompt,
+            imageEnabled: draft.editData.imageEnabled,
+            imageType: draft.editData.imageType,
+            imagePrompt: draft.editData.imagePrompt,
+            areas: [spreadsheetRow.area || ''],
+            metaPageIds: [spreadsheetRow.metaPageId || ''],
+            ghlLocationIds: [spreadsheetRow.ghlLocationId || ''],
+            ghlApiKeys: [spreadsheetRow.ghlApiKey || '']
         };
         
-        console.log('📤 Regenerating draft:', payload);
+        console.log('📤 Regenerating draft:', regenerateFormData);
         
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                ...regenerateFormData,
+                userId: CONFIG.GHL_USER_ID,
+                locationId: CONFIG.GHL_LOCATION_ID
+            })
         });
         
         if (!response.ok) {
@@ -1318,18 +1298,14 @@ async function saveDraftEdit(formId, draftId) {
         }
         
         const result = await response.json();
-        console.log('📥 Received from n8n:', result);
+        console.log('📥 Received regenerated data from n8n:', result);
         
-        // Transform and update the existing draft
+        // Update draft with new data
         if (result) {
             const transformedResult = transformN8nResponse(result, form);
-            
-            // Update draft with new content
             draft.text = transformedResult.text;
             draft.image = transformedResult.image;
             draft.video = transformedResult.video;
-            
-            // Exit edit mode
             draft.editing = false;
             
             renderDrafts(formId);
@@ -1351,7 +1327,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Submit All Forms
+// Submit All Forms - SINGLE WEBHOOK WITH ALL DATA
 async function submitAllForms() {
     // Validate all forms
     const validForms = forms.filter(f => {
@@ -1369,8 +1345,7 @@ async function submitAllForms() {
     showLoading(true);
     
     try {
-        // Prepare clean forms without drafts using original structure
-// Prepare clean forms without drafts and add spreadsheet data
+        // Prepare clean forms with ALL data including image/video settings
         const cleanForms = validForms.map(form => {
             const { drafts, ...formData } = form;
             
@@ -1382,13 +1357,11 @@ async function submitAllForms() {
                 ghlApiKeys: []
             };
             
-            // For each page in the form, find matching spreadsheet row
             form.pageTitles.forEach((pageTitle, index) => {
                 const spreadsheetRow = spreadsheetData.find(row => 
                     row.pageTitle === pageTitle
                 ) || {};
                 
-                // Add data to arrays (in same order as pages/pageTitles)
                 spreadsheetArrays.areas.push(spreadsheetRow.area || '');
                 spreadsheetArrays.metaPageIds.push(spreadsheetRow.metaPageId || '');
                 spreadsheetArrays.ghlLocationIds.push(spreadsheetRow.ghlLocationId || '');
@@ -1401,18 +1374,19 @@ async function submitAllForms() {
             };
         });
         
-            // Calculate dynamic timeout based on number of items
-            const itemCount = cleanForms.reduce((total, form) => total + (form.pages?.length || 1), 0);
-            const timeoutMs = 30000 + (itemCount * 150000);
-            console.log(`⏱️ Timeout set for ${itemCount} items: ${timeoutMs/1000}s`);
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
+        // Calculate dynamic timeout based on total item count
+        const itemCount = cleanForms.reduce((total, form) => total + (form.pages?.length || 1), 0);
+        const timeoutMs = 30000 + (itemCount * 150000); // 30s base + 150s per item
         
+        console.log(`⏱️ Setting timeout to ${timeoutMs}ms for ${itemCount} total item(s)`);
+        
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        
+        // Send to n8n webhook
         const response = await fetch(CONFIG.N8N_WEBHOOK, {
             method: 'POST',
-            signal: controller.signal,  // ← ADD THIS LINE (after line 1370)
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -1420,10 +1394,11 @@ async function submitAllForms() {
                 forms: cleanForms,
                 userId: CONFIG.GHL_USER_ID,
                 locationId: CONFIG.GHL_LOCATION_ID
-            })
+            }),
+            signal: controller.signal
         });
-
-        clearTimeout(timeoutId);  // ← ADD THIS LINE
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
             throw new Error('Submission failed');
@@ -1434,49 +1409,31 @@ async function submitAllForms() {
         
         // Process results and add drafts
         if (result) {
-            // Handle different response formats
-            let resultsArray = [];
-            
-            if (Array.isArray(result)) {
-                // If response is an array, use it directly
-                resultsArray = result;
-            } else if (result.results && Array.isArray(result.results)) {
-                // If response has a results property with an array
-                resultsArray = result.results;
-            } else {
-                // Single result, wrap in array
-                resultsArray = [result];
-            }
+            let resultsArray = Array.isArray(result) ? result : [result];
             
             console.log(`📦 Processing ${resultsArray.length} result(s)`);
             
-            // Check if results are grouped by form or flat (single form)
-            if (resultsArray.length > 0 && resultsArray[0].formIndex !== undefined) {
-                // Results have formIndex, group by form
-                resultsArray.forEach(item => {
-                    const formIndex = item.formIndex;
-                    if (validForms[formIndex]) {
-                        const transformedResult = transformN8nResponse(item, validForms[formIndex]);
-                        addDraft(validForms[formIndex].id, transformedResult);
-                    }
+            // Determine which form each result belongs to
+            if (validForms.length > 0) {
+                const targetForm = validForms[0];
+                
+                resultsArray.forEach(draftData => {
+                    const transformedResult = transformN8nResponse(draftData, targetForm);
+                    addDraft(targetForm.id, transformedResult);
                 });
-            } else {
-                // Flat results, assume single form with multiple pageTitles
-                if (validForms.length > 0) {
-                    const targetForm = validForms[0];
-                    resultsArray.forEach(draftData => {
-                        const transformedResult = transformN8nResponse(draftData, targetForm);
-                        addDraft(targetForm.id, transformedResult);
-                    });
-                }
             }
         }
         
         alert('All forms submitted successfully!');
         
     } catch (error) {
-        console.error('Error submitting forms:', error);
-        alert('Error submitting forms. Please try again.');
+        if (error.name === 'AbortError') {
+            console.error('❌ Request timed out');
+            alert('Request timed out. The process may still be running in n8n. Please check back in a few minutes.');
+        } else {
+            console.error('Error submitting forms:', error);
+            alert('Error submitting forms. Please try again.');
+        }
     } finally {
         showLoading(false);
     }
